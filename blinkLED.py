@@ -1,3 +1,10 @@
+###===========================================
+###  blinkLED.py
+###  https://github.com/GeoDirk/NEO_LED_Blink
+###  License: MIT
+###  Version 1.0
+###===========================================
+
 import os
 import time
 import datetime
@@ -83,21 +90,25 @@ if __name__ == "__main__":
 		#check if voltage is above 3.6V
 		pinVolt = readPin(pinVolt3_6)
 		if pinVolt:
-			blink_LEDxTimes(6, 1)
+			os.system("echo 1 > /sys/class/gpio/gpio" + str(pinLED) + "/value")
 		else:
 			#check if voltage is above 3.4V
 			pinVolt = readPin(pinVolt3_4)
 			if pinVolt:
-				blink_LEDxTimes(6, 2)
+				blink_LEDxTimes(pinLED, 1)
 			else:
 				#check if voltage is above 3.2V
 				pinVolt = readPin(pinVolt3_2)
 				if pinVolt:
-					blink_LEDxTimes(6, 3)
+					blink_LEDxTimes(pinLED, 2)
 				else:
 					#check if voltage is above 3.0V
 					pinVolt = readPin(pinVolt3_0)
 					if pinVolt:
+						blink_LEDxTimes(pinLED, 3)
+						#pin volage above 3V so reset iteration
+						iIteration = 0
+					else:
 						#pin voltage is below 3V so we need to do a few iterations to make sure that we
 						#are still getting the same info each time
 						iIteration += 1
@@ -105,10 +116,7 @@ if __name__ == "__main__":
 							bContinue = False
 						else:
 							blink_LEDxTimes(6, 4)
-					else:
-						#pin volage above 3V so reset iteration
-						iIteration = 0
-
+						
 		time.sleep(1)
 
 	print("Exiting for Shutdown\n")
