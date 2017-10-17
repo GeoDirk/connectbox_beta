@@ -2,12 +2,13 @@
 ###  blinkLED.py
 ###  https://github.com/GeoDirk/NEO_LED_Blink
 ###  License: MIT
-###  Version 1.0
 ###===========================================
+
 
 import os
 import time
 import datetime
+import threading
 
 ###===========================================
 ###  GLOBALS
@@ -35,6 +36,7 @@ def setup_gpio_pin(pinNum, direction):
 			os.system("echo \"" + direction + "\" > /sys/class/gpio/gpio{}/direction".format(pinNum))
 		except:
 			print("Error reading Pin {} value".format(str(pinNum)))
+	return
 
 ###===========================================
 ###  Blink the LED a certain number of times
@@ -51,6 +53,7 @@ def blink_LEDxTimes(pinNum, times):
 		bVal = not bVal #toggle boolean
 	#make sure that we turn the LED off
 	os.system("echo 0 > /sys/class/gpio/gpio" + str(pinNum) + "/value")
+	return
 
 ###===========================================
 ###  Read the value from some input pin
@@ -64,6 +67,7 @@ def readPin(pinNum):
 			return False
 	except:
 		print("Error reading Pin " + str(pinNum) + " Values")
+	return
 
 ###===========================================
 ###  Program entry point
@@ -85,6 +89,7 @@ if __name__ == "__main__":
 
 	print("Starting Monitoring")
 	iIteration = 0
+	threads = []
 	bContinue = True
 	while bContinue:
 		#check if voltage is above 3.6V
@@ -95,17 +100,23 @@ if __name__ == "__main__":
 			#check if voltage is above 3.4V
 			pinVolt = readPin(pinVolt3_4)
 			if pinVolt:
-				blink_LEDxTimes(pinLED, 1)
+				t = threading.Thread(target=blink_LEDxTimes, args=(pinLED, 1,))
+				threads.append(t)
+				t.start()
 			else:
 				#check if voltage is above 3.2V
 				pinVolt = readPin(pinVolt3_2)
 				if pinVolt:
-					blink_LEDxTimes(pinLED, 2)
+					t = threading.Thread(target=blink_LEDxTimes, args=(pinLED, 2,))
+					threads.append(t)
+					t.start()
 				else:
 					#check if voltage is above 3.0V
 					pinVolt = readPin(pinVolt3_0)
 					if pinVolt:
-						blink_LEDxTimes(pinLED, 3)
+						t = threading.Thread(target=blink_LEDxTimes, args=(pinLED, 3,))
+						threads.append(t)
+						t.start()
 						#pin volage above 3V so reset iteration
 						iIteration = 0
 					else:
@@ -115,8 +126,10 @@ if __name__ == "__main__":
 						if iIteration > 3:
 							bContinue = False
 						else:
-							blink_LEDxTimes(6, 4)
-						
+							t = threading.Thread(target=blink_LEDxTimes, args=(pinLED, 4,))
+							threads.append(t)
+							t.start()
+				
 		time.sleep(1)
 
 	print("Exiting for Shutdown\n")
