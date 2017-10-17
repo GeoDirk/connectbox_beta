@@ -2,6 +2,7 @@
 ###  blinkLED.py
 ###  https://github.com/GeoDirk/NEO_LED_Blink
 ###  License: MIT
+###  Version 1.0
 ###===========================================
 
 
