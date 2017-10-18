@@ -47,13 +47,13 @@ def blink_LEDxTimes(pinNum, times):
 	bVal = True
 	for num in range(0, times):
 		if bVal:
-			os.system("echo 1 > /sys/class/gpio/gpio" + str(pinNum) + "/value")
-		else:
 			os.system("echo 0 > /sys/class/gpio/gpio" + str(pinNum) + "/value")
+		else:
+			os.system("echo 1 > /sys/class/gpio/gpio" + str(pinNum) + "/value")
 		time.sleep(delay_sec)
 		bVal = not bVal #toggle boolean
 	#make sure that we turn the LED off
-	os.system("echo 0 > /sys/class/gpio/gpio" + str(pinNum) + "/value")
+	os.system("echo 1 > /sys/class/gpio/gpio" + str(pinNum) + "/value")
 	return
 
 ###===========================================
@@ -96,7 +96,7 @@ if __name__ == "__main__":
 		#check if voltage is above 3.6V
 		pinVolt = readPin(pinVolt3_6)
 		if pinVolt:
-			os.system("echo 1 > /sys/class/gpio/gpio" + str(pinLED) + "/value")
+			os.system("echo 0 > /sys/class/gpio/gpio" + str(pinLED) + "/value")
 		else:
 			#check if voltage is above 3.4V
 			pinVolt = readPin(pinVolt3_4)
