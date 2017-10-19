@@ -96,7 +96,8 @@ if __name__ == "__main__":
 		#check if voltage is above 3.6V
 		pinVolt = readPin(pinVolt3_6)
 		if pinVolt:
-			os.system("echo 0 > /sys/class/gpio/gpio" + str(pinLED) + "/value")
+			os.system("echo 1 > /sys/class/gpio/gpio" + str(pinLED) + "/value")
+			time.sleep(9)
 		else:
 			#check if voltage is above 3.4V
 			pinVolt = readPin(pinVolt3_4)
@@ -104,6 +105,7 @@ if __name__ == "__main__":
 				t = threading.Thread(target=blink_LEDxTimes, args=(pinLED, 1,))
 				threads.append(t)
 				t.start()
+				time.sleep(9)
 			else:
 				#check if voltage is above 3.2V
 				pinVolt = readPin(pinVolt3_2)
@@ -111,6 +113,7 @@ if __name__ == "__main__":
 					t = threading.Thread(target=blink_LEDxTimes, args=(pinLED, 2,))
 					threads.append(t)
 					t.start()
+					time.sleep(4)
 				else:
 					#check if voltage is above 3.0V
 					pinVolt = readPin(pinVolt3_0)
@@ -120,6 +123,7 @@ if __name__ == "__main__":
 						t.start()
 						#pin volage above 3V so reset iteration
 						iIteration = 0
+						time.sleep(4)
 					else:
 						#pin voltage is below 3V so we need to do a few iterations to make sure that we
 						#are still getting the same info each time
