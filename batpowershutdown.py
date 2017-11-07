@@ -4,8 +4,6 @@
 ###  License: MIT
 ###  Version 1.0
 ###===========================================
-
-
 import os
 import time
 import datetime
@@ -138,3 +136,4 @@ if __name__ == "__main__":
 		time.sleep(1)
 
 	print("Exiting for Shutdown\n")
+	os.system("shutdown now")
