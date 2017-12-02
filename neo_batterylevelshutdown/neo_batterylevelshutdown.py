@@ -32,7 +32,7 @@ def setup_gpio_pin(pinNum, direction):
             os.system("echo {} > /sys/class/gpio/export".format(pinNum))
             os.system("echo \"" + direction +
                       "\" > /sys/class/gpio/gpio{}/direction".format(pinNum))
-        except:
+        except:  # noqa: E722
             print("Error reading Pin {} value".format(str(pinNum)))
     return
 
@@ -62,13 +62,14 @@ def readPin(pinNum):
             return True
         else:
             return False
-    except:
+    except:  # noqa: E722
         print("Error reading Pin " + str(pinNum) + " Values")
     return
 
 
 def entryPoint():
-    DEBUG = 1
+    # To be hoisted and used to set logging level
+    # DEBUG = 1
 
     print("Intializing Pins\n")
     print("Pin: LED")

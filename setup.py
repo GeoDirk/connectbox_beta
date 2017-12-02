@@ -26,7 +26,8 @@ test_requirements = [
 setup(
     name='neo_batterylevelshutdown',
     version='0.1.0',
-    description="Monitor and display battery level via the Connectbox NEO hat and gracefully shutdown when necessary",
+    description="Monitor and display battery level via the Connectbox NEO "
+                "hat and gracefully shutdown when necessary",
     long_description=readme + '\n\n' + history,
     author="ConnectBox Developers",
     author_email='edwin@wordspeak.org',
@@ -48,9 +49,9 @@ setup(
         'License :: OSI Approved :: MIT License',
         'Natural Language :: English',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.3',
         'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
+        'Programming Language :: Python :: 3.6',
     ],
     test_suite='tests',
     tests_require=test_requirements,
