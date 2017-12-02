@@ -3,7 +3,7 @@
 """Console script for neo_batterylevelshutdown."""
 
 import click
-import neo_batterylevelshutdown
+from . import neo_batterylevelshutdown
 
 
 @click.command()
