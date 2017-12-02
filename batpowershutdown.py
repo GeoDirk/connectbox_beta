@@ -2,7 +2,7 @@
 """
 ===========================================
   blinkLED.py
-  https://github.com/GeoDirk/NEO_LED_Blink
+  https://github.com/GeoDirk/NEO_BatteryLevelShutdown
   License: MIT
   Version 1.0
 ===========================================
