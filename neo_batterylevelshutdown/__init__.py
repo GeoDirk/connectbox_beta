@@ -2,6 +2,6 @@
 
 """Top-level package for NEO_BatteryLevelShutdown."""
 
-__author__ = """Edwin Steele"""
+__author__ = """ConnectBox Developers"""
 __email__ = 'edwin@wordspeak.org'
 __version__ = '0.1.0'

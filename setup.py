@@ -13,15 +13,14 @@ with open('HISTORY.rst') as history_file:
 
 requirements = [
     'Click>=6.0',
-    # TODO: put package requirements here
 ]
 
+# No setup requirements (distutils extensions, etc.)
 setup_requirements = [
-    # TODO(edwinsteele): put setup requirements (distutils extensions, etc.) here
 ]
 
+# No test requirements
 test_requirements = [
-    # TODO: put package test requirements here
 ]
 
 setup(
@@ -29,9 +28,9 @@ setup(
     version='0.1.0',
     description="Monitor and display battery level via the Connectbox NEO hat and gracefully shutdown when necessary",
     long_description=readme + '\n\n' + history,
-    author="Edwin Steele",
+    author="ConnectBox Developers",
     author_email='edwin@wordspeak.org',
-    url='https://github.com/edwinsteele/neo_batterylevelshutdown',
+    url='https://github.com/ConnectBox/neo_batterylevelshutdown',
     packages=find_packages(include=['neo_batterylevelshutdown']),
     entry_points={
         'console_scripts': [
@@ -48,9 +47,6 @@ setup(
         'Intended Audience :: Developers',
         'License :: OSI Approved :: MIT License',
         'Natural Language :: English',
-        "Programming Language :: Python :: 2",
-        'Programming Language :: Python :: 2.6',
-        'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.3',
         'Programming Language :: Python :: 3.4',
