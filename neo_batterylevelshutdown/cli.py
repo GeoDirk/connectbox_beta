@@ -2,12 +2,18 @@
 
 """Console script for neo_batterylevelshutdown."""
 
+import logging
 import click
 from . import neo_batterylevelshutdown
 
 
 @click.command()
-def main(args=None):
+@click.option('-v', '--verbose', is_flag=True, default=False)
+def main(verbose):
+    if verbose:
+        logging.basicConfig(level=logging.DEBUG)
+    else:
+        logging.basicConfig(level=logging.INFO)
     neo_batterylevelshutdown.entryPoint()
 
 

@@ -8,6 +8,7 @@
   Version 1.0
 ===========================================
 """
+import logging
 import os
 import time
 import threading
@@ -33,7 +34,7 @@ def setup_gpio_pin(pinNum, direction):
             os.system("echo \"" + direction +
                       "\" > /sys/class/gpio/gpio{}/direction".format(pinNum))
         except:  # noqa: E722
-            print("Error reading Pin {} value".format(str(pinNum)))
+            logging.warn("Error reading Pin {} value".format(str(pinNum)))
     return
 
 
@@ -63,27 +64,24 @@ def readPin(pinNum):
         else:
             return False
     except:  # noqa: E722
-        print("Error reading Pin " + str(pinNum) + " Values")
+        logging.warn("Error reading Pin " + str(pinNum) + " Values")
     return
 
 
 def entryPoint():
-    # To be hoisted and used to set logging level
-    # DEBUG = 1
-
-    print("Intializing Pins\n")
-    print("Pin: LED")
+    logging.info("Intializing Pins")
+    logging.debug("Pin: LED")
     setup_gpio_pin(PIN_LED, "out")
-    print("Pin: PG6 3.0V")
+    logging.debug("Pin: PG6 3.0V")
     setup_gpio_pin(PIN_VOLT_3_0, "in")
-    print("Pin: PG7 3.2V")
+    logging.debug("Pin: PG7 3.2V")
     setup_gpio_pin(PIN_VOLT_3_2, "in")
-    print("Pin: PG8 3.4V")
+    logging.debug("Pin: PG8 3.4V")
     setup_gpio_pin(PIN_VOLT_3_4, "in")
-    print("Pin: PG9 3.6V\n")
+    logging.debug("Pin: PG9 3.6V")
     setup_gpio_pin(PIN_VOLT_3_6, "in")
 
-    print("Starting Monitoring")
+    logging.info("Starting Monitoring")
     iIteration = 0
     threads = []
     bContinue = True
@@ -138,5 +136,5 @@ def entryPoint():
 
         time.sleep(1)
 
-    print("Exiting for Shutdown\n")
+    logging.info("Exiting for Shutdown\n")
     os.system("shutdown now")
