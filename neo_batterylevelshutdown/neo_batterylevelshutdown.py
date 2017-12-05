@@ -20,52 +20,62 @@ PIN_VOLT_3_2 = 199  # PG7 pin - above 3.2V
 PIN_VOLT_3_4 = 200  # PG8 pin - above 3.4V
 PIN_VOLT_3_6 = 201  # PG9 pin - above 3.6V
 LED_FLASH_DELAY_SEC = 0.1
+GPIO_EXPORT_FILE = "/sys/class/gpio/export"
 
+PIN_HIGH = "1"
+PIN_LOW = "0"
 
 def setup_gpio_pin(pinNum, direction):
     """Setup the GPIO Pin for operation in the system OS"""
-    # check if file exists or not
-    path = "/sys/class/gpio/gpio" + str(pinNum)
-    if not os.path.isfile(path):
-        # function for telling the system that it needs to create a
-        # gpio pin for use
+    if not os.path.isfile(GPIO_EXPORT_FILE):
+        logging.warn("Unable to find GPIO export file: %s "
+                     "Is GPIO_SYSFS active?", GPIO_EXPORT_FILE)
+        return False
+
+    # Has this pin been exported?
+    pinPath = "/sys/class/gpio/gpio{}".format(pinNum)
+    if not os.path.isfile(pinPath):
         try:
-            os.system("echo {} > /sys/class/gpio/export".format(pinNum))
-            os.system("echo \"" + direction +
-                      "\" > /sys/class/gpio/gpio{}/direction".format(pinNum))
-        except:  # noqa: E722
-            logging.warn("Error reading Pin {} value".format(str(pinNum)))
-    return
+            # Export pin for access
+            with open(GPIO_EXPORT_FILE, "w") as f:
+                f.write(pinNum)
+            # Configure the pin direction
+            with open(os.path.join(pinPath, "direction")) as f:
+                f.write(direction)
+        except OSError:
+            logging.warn("Error setting up GPIO pin %s", pinNum)
+            return False
+
+    return True
 
 
 def blink_LEDxTimes(pinNum, times):
     """Blink the LED a certain number of times"""
-    times = times * 2  # need to account for going on/off as two cycles
-    bVal = True
-    for _ in range(0, times):
-        if bVal:
-            os.system("echo 0 > /sys/class/gpio/gpio" + str(pinNum) + "/value")
-        else:
-            os.system("echo 1 > /sys/class/gpio/gpio" + str(pinNum) + "/value")
-        time.sleep(LED_FLASH_DELAY_SEC)
-        bVal = not bVal  # toggle boolean
-    # make sure that we turn the LED off
-    os.system("echo 1 > /sys/class/gpio/gpio" + str(pinNum) + "/value")
-    return
+    try:
+        with open("/sys/class/gpio/gpio{}/value".format(pinNum), "w") as pin:
+            for _ in range(0, times):
+                pin.write(PIN_LOW)
+                time.sleep(LED_FLASH_DELAY_SEC)
+                pin.write(PIN_HIGH)
+                time.sleep(LED_FLASH_DELAY_SEC)
+
+            # make sure that we turn the LED off
+            pin.write(PIN_HIGH)
+    except OSError:
+        logging.warn("Error writing to pin {}".format(pinNum))
+        return False
+    return True
 
 
 def readPin(pinNum):
     """Read the value from some input pin"""
     try:
-        sRet = os.popen("cat /sys/class/gpio/gpio" +
-                        str(pinNum) + "/value").read()
-        if sRet == "1\n":
-            return True
-        else:
-            return False
-    except:  # noqa: E722
-        logging.warn("Error reading Pin " + str(pinNum) + " Values")
-    return
+        with open("/sys/class/gpio/gpio{}/value".format(pinNum)) as pin:
+            return pin.read(1) == 1
+    except OSError:
+        logging.warn("Error reading from pin {}".format(pinNum))
+
+    return -1
 
 
 def entryPoint():
@@ -89,8 +99,11 @@ def entryPoint():
         # check if voltage is above 3.6V
         PIN_VOLT_ = readPin(PIN_VOLT_3_6)
         if PIN_VOLT_:
-            os.system("echo 1 > /sys/class/gpio/gpio" +
-                      str(PIN_LED) + "/value")
+            try:
+                with open("/sys/class/gpio/gpio{}/value".format(PIN_LED)) as pin:
+                    pin.write(PIN_HIGH)
+            except OSError:
+                logging.warn("Error writing to pin {}".format(PIN_LED))
             time.sleep(9)
         else:
             # check if voltage is above 3.4V
