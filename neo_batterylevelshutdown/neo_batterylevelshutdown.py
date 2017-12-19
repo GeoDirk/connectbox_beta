@@ -29,7 +29,7 @@ PIN_LOW = "0"
 def setup_gpio_pin(pinNum, direction):
     """Setup the GPIO Pin for operation in the system OS"""
     if not os.path.isfile(GPIO_EXPORT_FILE):
-        logging.warn("Unable to find GPIO export file: %s "
+        logging.error("Unable to find GPIO export file: %s "
                      "Is GPIO_SYSFS active?", GPIO_EXPORT_FILE)
         return False
 
@@ -37,9 +37,8 @@ def setup_gpio_pin(pinNum, direction):
     pinPath = "/sys/class/gpio/gpio{}".format(pinNum)
     if not os.path.isfile(pinPath):
         try:
-            # Export pin for access
-            # with open(GPIO_EXPORT_FILE, "w") as f:
-            #     f.write(str(pinNum))
+            # Export pin for access - once we have HATs for wider testing
+            #  turn this echo into the regular python open and write pattern
             os.system("echo {} > /sys/class/gpio/export".format(pinNum))
             logging.info("GPIO pin %s Export Complete", pinNum)
             # Configure the pin direction
@@ -47,7 +46,7 @@ def setup_gpio_pin(pinNum, direction):
                 f.write(direction)
             logging.info("GPIO pin %s Direction Complete", pinNum)
         except OSError:
-            logging.warn("Error setting up GPIO pin %s", pinNum)
+            logging.error("Error setting up GPIO pin %s", pinNum)
             return False
 
     return True
@@ -80,14 +79,16 @@ def readPin(pinNum):
     return -1
 
 
-def entryPoint():
+def initializePins():
     logging.info("Intializing Pins")
-    setup_gpio_pin(PIN_LED, "out")
-    setup_gpio_pin(PIN_VOLT_3_0, "in")
-    setup_gpio_pin(PIN_VOLT_3_2, "in")
-    setup_gpio_pin(PIN_VOLT_3_4, "in")
-    setup_gpio_pin(PIN_VOLT_3_6, "in")
+    return setup_gpio_pin(PIN_LED, "out") and \
+        setup_gpio_pin(PIN_VOLT_3_0, "in") and \
+        setup_gpio_pin(PIN_VOLT_3_2, "in") and \
+        setup_gpio_pin(PIN_VOLT_3_4, "in") and \
+        setup_gpio_pin(PIN_VOLT_3_6, "in")
 
+
+def monitorVoltageUntilShutdown():
     iIteration = 0
     threads = []
     bContinue = True
@@ -147,5 +148,42 @@ def entryPoint():
 
         time.sleep(1)
 
+
+def neoHatIsPresent():
+    """
+    There are 5 input lines connected to the HAT that are available for
+    testing. PA6, PG6, PG7, PG8 and PG9. That gives 32 combinations of possible
+    readings if an unconnected pin can be high or low, BUT because of the way
+    those pins are used on the HAT, there are only 4 valid combinations of
+    those 5 bits if a HAT is attached. For example, if we arrange the “bits” of
+    reading as PA6, PG9, PG8, PG7 and PG6, the ONLY possible readings we can
+    observe if a HAT is connected are: 11111, 10111, 10011, 10001 and 10000.
+    Any other readings mean that the HAT is NOT connected.
+
+    We have also observed that the NEO circuitry has a clear and strong bias
+    towards reading a "0" on an unconnected pin.
+    """
+    # PA6, PG9, PG8, PG7, PG6
+    pinStatus = \
+        int(readPin(PIN_LED)) * 10000 + \
+        int(readPin(PIN_VOLT_3_6)) * 1000 + \
+        int(readPin(PIN_VOLT_3_4)) * 100 + \
+        int(readPin(PIN_VOLT_3_2)) * 10 + \
+        int(readPin(PIN_VOLT_3_0))
+
+    return pinStatus not in (11111, 10111, 1011, 10001, 10000)
+
+
+def entryPoint():
+    if not initializePins():
+        logging.error("Errors during pin setup. Aborting")
+        return False
+
+    if not neoHatIsPresent():
+        logging.info("NEO Hat not detected. No voltage detection possible. "
+                     "Exiting.")
+        return True
+
+    monitorVoltageUntilShutdown()
     logging.info("Exiting for Shutdown\n")
     os.system("shutdown now")
