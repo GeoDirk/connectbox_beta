@@ -171,7 +171,7 @@ def neoHatIsPresent():
         int(readPin(PIN_VOLT_3_2)) * 10 + \
         int(readPin(PIN_VOLT_3_0))
 
-    return pinStatus not in (11111, 10111, 1011, 10001, 10000)
+    return pinStatus in (11111, 10111, 1011, 10001, 10000)
 
 
 def entryPoint():
