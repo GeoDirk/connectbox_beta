@@ -30,7 +30,7 @@ def setup_gpio_pin(pinNum, direction):
     """Setup the GPIO Pin for operation in the system OS"""
     if not os.path.isfile(GPIO_EXPORT_FILE):
         logging.error("Unable to find GPIO export file: %s "
-                     "Is GPIO_SYSFS active?", GPIO_EXPORT_FILE)
+                      "Is GPIO_SYSFS active?", GPIO_EXPORT_FILE)
         return False
 
     # Has this pin been exported?
@@ -54,28 +54,29 @@ def setup_gpio_pin(pinNum, direction):
 
 def blink_LEDxTimes(pinNum, times):
     """Blink the LED a certain number of times"""
+    pinFile = "/sys/class/gpio/gpio{}/value".format(pinNum)
     try:
         for _ in range(0, times):
-            with open("/sys/class/gpio/gpio{}/value".format(pinNum), "w") as pin:
+            with open(pinFile, "w") as pin:
                 pin.write(PIN_HIGH)
             time.sleep(LED_FLASH_DELAY_SEC)
-            with open("/sys/class/gpio/gpio{}/value".format(pinNum), "w") as pin:
+            with open(pinFile, "w") as pin:
                 pin.write(PIN_LOW)
             time.sleep(LED_FLASH_DELAY_SEC)
     except OSError:
-        logging.warn("Error writing to pin {}".format(pinNum))
+        logging.warn("Error writing to pin %s", pinNum)
         return False
     return True
 
 
 def readPin(pinNum):
     """Read the value from some input pin"""
-    logging.info("Reading pin {}".format(pinNum))
+    logging.info("Reading pin %s", pinNum)
     try:
         with open("/sys/class/gpio/gpio{}/value".format(pinNum), 'r') as pin:
             return str(pin.read(1)) == "1"
     except OSError:
-        logging.warn("Error reading from pin {}".format(pinNum))
+        logging.warn("Error reading from pin %s", pinNum)
     return -1
 
 
@@ -96,13 +97,14 @@ def monitorVoltageUntilShutdown():
     while bContinue:
         # check if voltage is above 3.6V
         PIN_VOLT_ = readPin(PIN_VOLT_3_6)
-        logging.info("Value PIN_VOLT_3_6: {}".format(PIN_VOLT_))
+        logging.info("Value PIN_VOLT_3_6: %s", PIN_VOLT_)
         if PIN_VOLT_:
             try:
-                with open("/sys/class/gpio/gpio{}/value".format(PIN_LED), "w") as pin:
+                with open("/sys/class/gpio/gpio{}/value".format(PIN_LED),
+                          "w") as pin:
                     pin.write(PIN_LOW)
             except OSError:
-                logging.warn("Error writing to pin {}".format(PIN_LED))
+                logging.warn("Error writing to pin %s", PIN_LED)
             time.sleep(9)
         else:
             # check if voltage is above 3.4V
