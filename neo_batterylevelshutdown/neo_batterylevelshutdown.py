@@ -35,20 +35,21 @@ def setup_gpio_pin(pinNum, direction):
 
     # Has this pin been exported?
     pinPath = "/sys/class/gpio/gpio{}".format(pinNum)
-    if not os.path.isfile(pinPath):
-        try:
+    try:
+        if not os.path.exists(pinPath):
             # Export pin for access - once we have HATs for wider testing
             #  turn this echo into the regular python open and write pattern
             os.system("echo {} > /sys/class/gpio/export".format(pinNum))
             logging.info("Completed export of GPIO pin %s", pinNum)
-            # Configure the pin direction
-            with open(os.path.join(pinPath, "direction"), 'w') as f:
-                f.write(direction)
-            logging.info("Completed setting direction GPIO pin %s to %s",
-                         pinNum, direction)
-        except OSError:
-            logging.error("Error setting up GPIO pin %s", pinNum)
-            return False
+
+        # Configure the pin direction
+        with open(os.path.join(pinPath, "direction"), 'w') as f:
+            f.write(direction)
+        logging.info("Completed setting direction GPIO pin %s to %s",
+                     pinNum, direction)
+    except OSError:
+        logging.error("Error setting up GPIO pin %s", pinNum)
+        return False
 
     return True
 
