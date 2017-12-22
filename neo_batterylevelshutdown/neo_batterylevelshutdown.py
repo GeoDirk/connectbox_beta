@@ -40,11 +40,12 @@ def setup_gpio_pin(pinNum, direction):
             # Export pin for access - once we have HATs for wider testing
             #  turn this echo into the regular python open and write pattern
             os.system("echo {} > /sys/class/gpio/export".format(pinNum))
-            logging.info("GPIO pin %s Export Complete", pinNum)
+            logging.info("Completed export of GPIO pin %s", pinNum)
             # Configure the pin direction
             with open(os.path.join(pinPath, "direction"), 'w') as f:
                 f.write(direction)
-            logging.info("GPIO pin %s Direction Complete", pinNum)
+            logging.info("Completed setting direction GPIO pin %s to %s",
+                         pinNum, direction)
         except OSError:
             logging.error("Error setting up GPIO pin %s", pinNum)
             return False
@@ -153,38 +154,27 @@ def monitorVoltageUntilShutdown():
 
 def neoHatIsPresent():
     """
-    There are 5 input lines connected to the HAT that are available for
-    testing. PA6, PG6, PG7, PG8 and PG9. That gives 32 combinations of possible
-    readings if an unconnected pin can be high or low, BUT because of the way
-    those pins are used on the HAT, there are only 4 valid combinations of
-    those 5 bits if a HAT is attached. For example, if we arrange the “bits” of
-    reading as PA6, PG9, PG8, PG7 and PG6, the ONLY possible readings we can
-    observe if a HAT is connected are: 11111, 10111, 10011, 10001 and 10000.
-    Any other readings mean that the HAT is NOT connected.
+    As PA6 is set to be a pulldown resistor on system startup by the
+    pa6-pulldown.service, and the HAT sets PA6 HIGH, so we check the
+    value of PA6, knowing non-HAT NEOs will read LOW.
 
-    We have also observed that the NEO circuitry has a clear and strong bias
-    towards reading a "0" on an unconnected pin.
+    We assume the HAT is not present if we're unable to setup the pin
+    or read from it. That's the safe option and means that we won't
+    immediately shutdown devices that don't have a HAT if we've incorrect
+    detected the presence of a HAT
     """
-    # PA6, PG9, PG8, PG7, PG6
-    pinStatus = \
-        int(readPin(PIN_LED)) * 10000 + \
-        int(readPin(PIN_VOLT_3_6)) * 1000 + \
-        int(readPin(PIN_VOLT_3_4)) * 100 + \
-        int(readPin(PIN_VOLT_3_2)) * 10 + \
-        int(readPin(PIN_VOLT_3_0))
-
-    return pinStatus in (11111, 10111, 1011, 10001, 10000)
+    return setup_gpio_pin(PIN_LED, "in") and readPin(PIN_LED) is True
 
 
 def entryPoint():
-    if not initializePins():
-        logging.error("Errors during pin setup. Aborting")
-        return False
-
     if not neoHatIsPresent():
         logging.info("NEO Hat not detected. No voltage detection possible. "
                      "Exiting.")
         return True
+
+    if not initializePins():
+        logging.error("Errors during pin setup. Aborting")
+        return False
 
     monitorVoltageUntilShutdown()
     logging.info("Exiting for Shutdown\n")
