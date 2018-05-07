@@ -32,8 +32,7 @@ PIN_VOLT_3_6 = 201  # PG9 pin - above 3.6V
 # Q3Y2018 - 100 Unit run specific pins
 PIN_L_BUTTON = 1  # PA1 left button
 PIN_M_BUTTON = 199 # PG7 middle button
-#PIN_R_BUTTON = ? # ??? right button
-PIN_ = 198  # PG6 pin
+PIN_R_BUTTON = 200  # PG8 pin right button
 
 LED_FLASH_DELAY_SEC = 0.1
 GPIO_EXPORT_FILE = "/sys/class/gpio/export"
