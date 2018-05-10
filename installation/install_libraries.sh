@@ -17,6 +17,7 @@ sudo -H pip3 install --upgrade pip
 sudo -H pip3 install --upgrade pip setuptools
 sudo -H pip3 install smbus2
 sudo -H pip3 install axp209
+sudo -H pip3 install psutil
 #sometimes problems with installing the next command with the d/l of pillow
 #it can KILL the process and mess up the full install
 sudo -H pip3 install --upgrade luma.oled
