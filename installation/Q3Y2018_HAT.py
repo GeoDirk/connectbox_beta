@@ -21,10 +21,12 @@ from luma.core import cmdline, error
 from luma.core.render import canvas
 import axp209
 import subprocess
+import page_none
 import page_main
 import page_battery
 import page_info
 import page_stats
+import page_memory
 
 
 from enum import Enum
@@ -32,7 +34,9 @@ from enum import Enum
 from HAT_Utilities import setup_gpio_pin, readPin, blink_LEDxTimes, get_device
 
 class Pages:
-    page_main, page_bat, page_info, page_stats = range(4)
+    page_none, page_main, page_info, page_memory, page_bat, page_stats = range(6)
+
+PAGE_COUNT = 5 #range of Pages Class minus 1
 
 # Common pins between HATs
 PIN_LED = 6  # PA6 pin
@@ -51,7 +55,7 @@ def draw_logo():
     img_path = os.path.abspath('connectbox_logo.png')
     logo = Image.open(img_path).convert("RGBA")
     fff = Image.new(logo.mode, logo.size, (255,) * 4)
-    background = Image.new("RGBA", device.size, "white")
+    background = Image.new("RGBA", device.size, "black")
     posn = ((device.width - logo.width) // 2, 0)
     img = Image.composite(logo, fff, logo)
     background.paste(img, posn)
@@ -83,28 +87,39 @@ def ProcessButtons(curPage,L_Button,M_Button,R_Button):
     bChange = False
     if L_Button == True:
         #move forward in the page stack
-        if  curPage == Pages.page_main:
-            curPage = curPage + 1
+        print("button:" + str(curPage) + " " + str(PAGE_COUNT))
+        if  curPage == PAGE_COUNT:
+            curPage = 0
+        else:
+            curPage += 1
         bChange = True
     elif M_Button == True:
-        #move forward in the page stack
+        #move backward in the page stack
+        if  curPage == 0:
+            curPage = PAGE_COUNT
+        else:
+            curPage -= 1
         bChange = True
     elif R_Button == True:
-        #Right button - unknown yet what to do
+        #Right button - turn on/off display
+        curPage = 0
         bChange = True
 
     if bChange == True:
         print('ProcessButton.bChange=true')
-        if  curPage == Pages.page_main:
+        if  curPage == Pages.page_none:
+            page_none.main()
+        elif  curPage == Pages.page_main:
             page_main.main()
-        elif curPage == Pages.page_bat:
-            page_battery.main()
         elif curPage == Pages.page_info:
             page_info.main()
+        elif curPage == Pages.page_memory:
+            page_memory.main()
+        elif curPage == Pages.page_bat:
+            page_battery.main()
         elif curPage == Pages.page_stats:
             page_stats.main()
     
-    print('ProcessButton.1:' + str(curPage))
     return curPage
 
 def Main_Q3Y2018():
@@ -114,21 +129,35 @@ def Main_Q3Y2018():
     if not initializePins():
         logging.error("Errors during pin setup. Aborting")
         return False
-
+    
+    #draw the connectbox logo
     draw_logo()
     time.sleep(3)
 
+    #set an OLED display timeout
+    OLED_TIMEOUT = 10 #seconds
+    timeout = int(round(time.time() * 1000))
+
     # start on the main page
-    curPage = Pages.page_main
-    page_main.main()
+    curPage = Pages.page_none
+    page_none.main()
     #loop through the buttons looking for changes
     while True:
         L,M,R = CheckButtonState()
-        curPage = ProcessButtons(curPage,L,M,R)
-        print('Main_Q3Y2018.0:' + str(curPage))
-        print('-----------------------')
-        time.sleep(2)
+        if L + M + R > 0:
+            #at least one button was pressed
+            timeout = int(round(time.time() * 1000))
+            curPage = ProcessButtons(curPage,L,M,R)
+        else:
+            #check for OLED timeout
+            curTime = int(round(time.time() * 1000))
+            if (curTime - timeout) > (OLED_TIMEOUT * 1000):
+                #timeout hit reset the clock and clear the display
+                timeout = int(round(time.time() * 1000))
+                curPage = Pages.page_none
+                page_none.main()
 
+        time.sleep(0.4)
     return
 
 def entryPoint():
