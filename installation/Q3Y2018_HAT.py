@@ -34,9 +34,11 @@ from enum import Enum
 from HAT_Utilities import setup_gpio_pin, readPin, blink_LEDxTimes, get_device
 
 class Pages:
-    page_none, page_main, page_info, page_memory, page_bat, page_stats = range(6)
+    page_none, page_main, page_info, page_memory, page_bat, page_h1_stats, \
+    page_h2_stats, page_d1_stats, page_d2_stats, page_w1_stats, page_w2_stats, \
+    page_m1_stats, page_m2_stats = range(13)
 
-PAGE_COUNT = 5 #range of Pages Class minus 1
+PAGE_COUNT = 12 #range of Pages Class minus 1
 
 # Common pins between HATs
 PIN_LED = 6  # PA6 pin
@@ -117,8 +119,23 @@ def ProcessButtons(curPage,L_Button,M_Button,R_Button):
             page_memory.main()
         elif curPage == Pages.page_bat:
             page_battery.main()
-        elif curPage == Pages.page_stats:
-            page_stats.main()
+        elif curPage == Pages.page_h1_stats:
+            page_stats.main('hour', 1)
+        elif curPage == Pages.page_h2_stats:
+            page_stats.main('hour', 2)
+        elif curPage == Pages.page_d1_stats:
+            page_stats.main('day', 1)
+        elif curPage == Pages.page_d2_stats:
+            page_stats.main('day', 2)
+        elif curPage == Pages.page_w1_stats:
+            page_stats.main('week', 1)
+        elif curPage == Pages.page_w2_stats:
+            page_stats.main('week', 2)
+        elif curPage == Pages.page_m1_stats:
+            page_stats.main('month', 1)
+        elif curPage == Pages.page_m2_stats:
+            page_stats.main('month', 2)
+
     
     return curPage
 
@@ -135,7 +152,7 @@ def Main_Q3Y2018():
     time.sleep(3)
 
     #set an OLED display timeout
-    OLED_TIMEOUT = 10 #seconds
+    OLED_TIMEOUT = 20 #seconds
     timeout = int(round(time.time() * 1000))
 
     # start on the main page

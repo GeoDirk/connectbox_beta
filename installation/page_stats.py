@@ -56,7 +56,7 @@ def draw_page(device, dt_range, page_num):
 
     # get a font
     font_path = os.path.abspath('connectbox.ttf')
-    font20 = ImageFont.truetype(font_path, 25)
+    font20 = ImageFont.truetype(font_path, 22)
     font10 = ImageFont.truetype(font_path, 12)
     # get a drawing context
     d = ImageDraw.Draw(txt)
@@ -66,11 +66,15 @@ def draw_page(device, dt_range, page_num):
         data = json.load(json_file)
         y = 0
         count = 0
+        
+        if page_num == 1:
+            d.text((107, 18), 'p1', font=font20, fill="black")
+        else:    
+            d.text((107, 18), 'p2', font=font20, fill="black")
         for p in data[dt_range]:
             media = p['resource'].rsplit('/',1)[1]
 
             if page_num == 1:
-                d.text((115, 20), '1', font=font20, fill="black")
                 #trim out directories
                 d.text((2, y), '(%s) %s'%(str(p['count']),media), font=font10, fill="black")
                 y += 12
@@ -78,20 +82,16 @@ def draw_page(device, dt_range, page_num):
                 if count == 5:
                     break
             else:
-                #second page
-                d.text((115, 20), '2', font=font20, fill="black")
                 #trim out directories
                 count += 1
                 if count > 5:
                     d.text((2, y), '(%s) %s'%(str(p['count']),media), font=font10, fill="black")
                     y += 12
-
-
      
     out = Image.alpha_composite(img, txt)
     device.display(out.convert(device.mode))
  	
-def main():
+def main(dt_range, pagenum):
     device = get_device()
     #readStatsJSON('hour')
     #readStatsJSON('day')
@@ -99,7 +99,7 @@ def main():
     #readStatsJSON('month')
     #readStatsJSON('year')
 
-    draw_page(device, 'day', 2)
+    draw_page(device, dt_range, pagenum)
     #while True:
     #    i = 1
     return
