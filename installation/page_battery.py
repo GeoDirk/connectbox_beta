@@ -30,7 +30,7 @@ def draw_page(device):
     #find out if the unit is charging or not
     # get an image
     img_path =  dir_path + '/assets/battery_page.png'
-    if axp.battery_current_direction:
+    if axp.power_input_status.acin_present:
         img_path =  dir_path + '/assets/battery_charging_page.png'
     
     base = Image.open(img_path).convert('RGBA')
@@ -60,7 +60,7 @@ def draw_page(device):
     else:
         #get the percent filled and draw a rectangle
         percent = axp.battery_gauge
-        percent = 50
+        d.text((52,1), "%.0f%%" % percent, font=font18, fill="black")
         if percent > 0 and percent < 10:
             d.rectangle((6, 5, 8, 12), fill="black")
             d.text((15, 2), "!", font=font14, fill="black")

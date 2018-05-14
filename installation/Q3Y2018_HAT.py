@@ -83,13 +83,9 @@ def ProcessButtons(curPage,L_Button,M_Button,R_Button):
     M button is go forward button
     R button is ???
     '''
-    print('ProcessButton.0:' + str(curPage))
-    print("L:%s M:%s R:%s" % (L_Button, M_Button, R_Button))
-
     bChange = False
     if L_Button == True:
         #move forward in the page stack
-        print("button:" + str(curPage) + " " + str(PAGE_COUNT))
         if  curPage == PAGE_COUNT:
             curPage = 0
         else:
@@ -108,7 +104,6 @@ def ProcessButtons(curPage,L_Button,M_Button,R_Button):
         bChange = True
 
     if bChange == True:
-        print('ProcessButton.bChange=true')
         if  curPage == Pages.page_none:
             page_none.main()
         elif  curPage == Pages.page_main:

@@ -71,9 +71,15 @@ def draw_page(device, dt_range, page_num):
             d.text((107, 18), 'p1', font=font20, fill="black")
         else:    
             d.text((107, 18), 'p2', font=font20, fill="black")
-        for p in data[dt_range]:
-            media = p['resource'].rsplit('/',1)[1]
 
+        #check to see if we have data or not
+        for p in data[dt_range]:            
+            if 'resource' in p.keys():
+                #cover up the unhappy face
+                d.rectangle((25, 1, 75, 128), fill="white")
+
+        for p in data[dt_range]: 
+            media = p['resource'].rsplit('/',1)[1]
             if page_num == 1:
                 #trim out directories
                 d.text((2, y), '(%s) %s'%(str(p['count']),media), font=font10, fill="black")

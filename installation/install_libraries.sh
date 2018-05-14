@@ -26,11 +26,8 @@ sudo -H pip3 install --upgrade luma.oled
 #add in I2C overlay
 sed -i '/overlays=usbhost0 usbhost1 usbhost2 usbhost3/c\overlays=usbhost0 usbhost1 usbhost2 usbhost3 i2c0' /boot/armbianEnv.txt
 
-
-#download example files
-wget https://raw.githubusercontent.com/GeoDirk/NEO_OLED_Setup/master/neo_batterylevelshutdown.py
-wget https://raw.githubusercontent.com/GeoDirk/NEO_OLED_Setup/master/connectbox_logo.png
-wget https://raw.githubusercontent.com/GeoDirk/NEO_OLED_Setup/master/connectbox.ttf
+#copy over the existing version
+cp * /usr/local/connectbox/battery_tool_venv/lib/python3.5/site-packages/neo_batterylevelshutdown/
 
 echo " "
 echo "Please restart to implement changes!"
