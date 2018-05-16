@@ -34,7 +34,7 @@ from enum import Enum
 from HAT_Utilities import setup_gpio_pin, readPin, blink_LEDxTimes, get_device
 
 class Pages:
-    page_none, page_main, page_info, page_memory, page_bat, page_h1_stats, \
+    page_none, page_main, page_info, page_bat, page_memory, page_h1_stats, \
     page_h2_stats, page_d1_stats, page_d2_stats, page_w1_stats, page_w2_stats, \
     page_m1_stats, page_m2_stats = range(13)
 
@@ -110,10 +110,10 @@ def ProcessButtons(curPage,L_Button,M_Button,R_Button):
             page_main.main()
         elif curPage == Pages.page_info:
             page_info.main()
+        elif curPage == Pages.page_bat:
+            page_battery.main()            
         elif curPage == Pages.page_memory:
             page_memory.main()
-        elif curPage == Pages.page_bat:
-            page_battery.main()
         elif curPage == Pages.page_h1_stats:
             page_stats.main('hour', 1)
         elif curPage == Pages.page_h2_stats:

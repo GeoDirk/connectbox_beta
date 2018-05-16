@@ -30,8 +30,6 @@ def draw_page(device):
     #find out if the unit is charging or not
     # get an image
     img_path =  dir_path + '/assets/battery_page.png'
-    if axp.power_input_status.acin_present:
-        img_path =  dir_path + '/assets/battery_charging_page.png'
     
     base = Image.open(img_path).convert('RGBA')
     fff = Image.new(base.mode, base.size, (255,) * 4)
@@ -48,26 +46,40 @@ def draw_page(device):
     d = ImageDraw.Draw(txt)
 
     # draw text, full opacity
-    d.text((11, 41), "%.1f" % axp.battery_voltage, font=font18, fill="black")
-    d.text((52, 41), "%.1f" % axp.internal_temperature, font=font18, fill="black")
-    d.text((95, 41), "%.1f" % axp.battery_charge_current, font=font18, fill="black")
+    d.text((5, 42), "%.0f" % int(axp.battery_voltage), font=font18, fill="black")
+    d.text((52, 42), "%.1f" % axp.internal_temperature, font=font18, fill="black")
+
+    if axp.power_input_status.acin_present:
+        #charging
+        #cover the out arrow
+        d.rectangle((47, 4, 62, 14), fill="white") #out arrow
+        #percent charge left
+        d.text((50,1), "%.0f%%" % axp.battery_gauge, font=font18, fill="black")
+        d.text((94, 42), "%.0f" % axp.battery_charge_current, font=font18, fill="black")
+    else:
+        #discharging
+        #cover the charging symbol & in arrow
+        d.rectangle((119, 0, 127, 16), fill="white") #charge symbol
+        d.rectangle((0, 4, 14, 14), fill="white") #in arrow
+        #percent charge left
+        d.text((63,1), "%.0f%%" % axp.battery_gauge, font=font18, fill="black")
+        d.text((94, 42), "%.0f" % axp.battery_discharge_current, font=font18, fill="black")    
 
     #draw battery fill lines
     if not axp.battery_exists:
         #cross out the battery
-        d.line((6, 5, 24, 12), fill="black", width=2)
-        d.line((6, 12, 24, 5), fill="black", width=2)
+        d.line((20, 5, 38, 12), fill="black", width=2)
+        d.line((20, 12, 38, 5), fill="black", width=2)
     else:
         #get the percent filled and draw a rectangle
         percent = axp.battery_gauge
-        d.text((52,1), "%.0f%%" % percent, font=font18, fill="black")
         if percent > 0 and percent < 10:
-            d.rectangle((6, 5, 8, 12), fill="black")
+            d.rectangle((20, 5, 22, 12), fill="black")
             d.text((15, 2), "!", font=font14, fill="black")
         elif  percent > 10:
-            x = int((24 - 6) * (percent / 100)) + 6 #start of battery level= 6px, end = 24px
-            print("X:" + str(x))
-            d.rectangle((6, 5, x, 12), fill="black")
+            x = int((38 - 20) * (percent / 100)) + 20 #start of battery level= 20px, end = 38px
+            #print("X:" + str(x))
+            d.rectangle((20, 5, x, 12), fill="black")
     '''
     print("internal_temperature: %.2fC" % axp.internal_temperature)
     print("battery_exists: %s" % axp.battery_exists)
