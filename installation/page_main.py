@@ -40,6 +40,11 @@ def get_connected_users():
     connected_user_count = len([line for line in c.stdout.decode("utf-8").split('\n') if line.startswith("Station")])
     return "%s" % connected_user_count
 
+def get_cpu_temp():
+    with open("/sys/devices/virtual/thermal/thermal_zone0/temp") as f:
+        tempC = f.readline()
+    return int(tempC)/1000
+
 def draw_page(device):
     # get an image
     dir_path = os.path.dirname(os.path.abspath(__file__))
@@ -53,7 +58,7 @@ def draw_page(device):
 
     # get a font
     font_path = os.path.abspath('connectbox.ttf')
-    font30 = ImageFont.truetype(font_path, 28)
+    font30 = ImageFont.truetype(font_path, 30)
     font20 = ImageFont.truetype(font_path, 20)
     font14 = ImageFont.truetype(font_path, 14)
 
@@ -63,41 +68,51 @@ def draw_page(device):
     # ConnectBox Banner
     d.text((2, 0), 'ConnectBox', font=font30, fill="black")
     # Image version name/number
-    d.text((41, 32), 'slimy frog', font=font14, fill="black")
+    d.text((38, 32), 'slimy frog', font=font14, fill="black")
     
     # connected users
-    d.text((15, 35), get_connected_users(), font=font30, fill="black")
+    d.text((13, 35), get_connected_users(), font=font20, fill="black")
 
     #open up the battery monitoring library
     axp = axp209.AXP209()
     
     if not axp.power_input_status.acin_present:
         # not charging - cover up symbol
-        d.rectangle((72, 48, 79, 61), fill="white") #charge symbol
+        d.rectangle((64, 48, 71, 61), fill="white") #charge symbol
 
     #draw battery fill lines
     if not axp.battery_exists:
         #cross out the battery
-        d.line((46, 51, 65, 58), fill="black", width=2)
-        d.line((46, 58, 65, 51), fill="black", width=2)
+        d.line((37, 51, 57, 58), fill="black", width=2)
+        d.line((37, 58, 57, 51), fill="black", width=2)
     else:
         #get the percent filled and draw a rectangle
         percent = axp.battery_gauge
         if percent > 0 and percent < 10:
-            d.rectangle((46, 51, 48, 58), fill="black")
-            d.text((51, 51), "!", font=font14, fill="black")
+            d.rectangle((37, 51, 39, 58), fill="black")
+            d.text((43, 51), "!", font=font14, fill="black")
         elif  percent > 10:
-            x = int((65 - 46) * (percent / 100)) + 46 #start of battery level= 20px, end = 38px
-            #print("X:" + str(x))
-            d.rectangle((46, 51, x, 58), fill="black")
+            x = int((57 - 37) * (percent / 100)) + 37 #start of battery level= 37px, end = 57px
+            d.rectangle((37, 51, x, 58), fill="black")
 
        # percent charge left
-    d.text((82,49), "%.0f%%" % axp.battery_gauge, font=font14, fill="black")
-
+    d.text((75,49), "%.0f%%" % axp.battery_gauge, font=font14, fill="black")
     axp.close()
-     
+    # cpu temp
+    d.text((105,49), "%.0fC" % get_cpu_temp(), font=font14, fill="black")
+    
+
     out = Image.alpha_composite(img, txt)
     device.display(out.convert(device.mode))
+
+    '''
+    cat /sys/devices/virtual/thermal/thermal_zone0/temp | awk '{ printf ("%0.1f°C\n",$1/1000 c); }'
+    '''
+
+    
+
+
+
 
 def main():
     device = get_device()
