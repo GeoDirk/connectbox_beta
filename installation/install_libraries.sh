@@ -24,7 +24,11 @@ sudo -H pip3 install --upgrade luma.oled
 
 
 #add in I2C overlay
-sed -i '/overlays=usbhost0 usbhost1 usbhost2 usbhost3/c\overlays=usbhost0 usbhost1 usbhost2 usbhost3 i2c0' /boot/armbianEnv.txt
+if grep -q 'i2c0' /boot/armbianEnv.txt; then
+  echo "Newer build detected - skipping i2c0 overlay fix"
+else
+  sed -i '/overlays=usbhost0 usbhost1 usbhost2 usbhost3/c\overlays=usbhost0 usbhost1 usbhost2 usbhost3 i2c0' /boot/armbianEnv.txt
+fi
 
 #copy over the existing version
 #echo "Replacing old 'neo_batterylevelshutdown' files"
