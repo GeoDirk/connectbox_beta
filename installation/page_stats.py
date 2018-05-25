@@ -62,37 +62,40 @@ def draw_page(device, dt_range, page_num):
     d = ImageDraw.Draw(txt)
 
     # draw text, full opacity
-    with open('/var/www/connectbox/connectbox_default/stats.top10.json') as json_file:  
-        data = json.load(json_file)
-        y = 0
-        count = 0
-        
-        if page_num == 1:
-            d.text((107, 18), 'p1', font=font20, fill="black")
-        else:    
-            d.text((107, 18), 'p2', font=font20, fill="black")
-
-        #check to see if we have data or not
-        for p in data[dt_range]:            
-            if 'resource' in p.keys():
-                #cover up the unhappy face
-                d.rectangle((25, 1, 75, 128), fill="white")
-
-        for p in data[dt_range]: 
-            media = p['resource'].rsplit('/',1)[1]
+    fname = '/var/www/connectbox/connectbox_default/stats.top10.json'
+    if os.path.isfile(fname):
+        # file exists continue
+        with open(fname) as json_file:  
+            data = json.load(json_file)
+            y = 0
+            count = 0
+            
             if page_num == 1:
-                #trim out directories
-                d.text((2, y), '(%s) %s'%(str(p['count']),media), font=font10, fill="black")
-                y += 12
-                count += 1
-                if count == 5:
-                    break
-            else:
-                #trim out directories
-                count += 1
-                if count > 5:
+                d.text((107, 18), 'p1', font=font20, fill="black")
+            else:    
+                d.text((107, 18), 'p2', font=font20, fill="black")
+
+            #check to see if we have data or not
+            for p in data[dt_range]:            
+                if 'resource' in p.keys():
+                    #cover up the unhappy face
+                    d.rectangle((25, 1, 75, 128), fill="white")
+
+            for p in data[dt_range]: 
+                media = p['resource'].rsplit('/',1)[1]
+                if page_num == 1:
+                    #trim out directories
                     d.text((2, y), '(%s) %s'%(str(p['count']),media), font=font10, fill="black")
                     y += 12
+                    count += 1
+                    if count == 5:
+                        break
+                else:
+                    #trim out directories
+                    count += 1
+                    if count > 5:
+                        d.text((2, y), '(%s) %s'%(str(p['count']),media), font=font10, fill="black")
+                        y += 12
      
     out = Image.alpha_composite(img, txt)
     device.display(out.convert(device.mode))
