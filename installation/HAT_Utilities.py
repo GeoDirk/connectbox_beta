@@ -67,6 +67,15 @@ def blink_LEDxTimes(pinNum, times):
         return False
     return True
 
+def GetReleaseVersion():
+    """Read the release version"""
+    try:
+        with open("/etc/connectbox-release", 'r') as release:
+            return str(release.read())
+    except OSError:
+        logging.warn("Error reading release version")
+    return "unknown"
+
 
 def readPin(pinNum):
     """Read the value from some input pin"""

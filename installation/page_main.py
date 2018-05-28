@@ -22,7 +22,7 @@ from datetime import datetime
 import subprocess
 import axp209
 
-from HAT_Utilities import get_device, display_settings
+from HAT_Utilities import get_device, display_settings, GetReleaseVersion
 
 
 try:
@@ -68,7 +68,7 @@ def draw_page(device):
     # ConnectBox Banner
     d.text((2, 0), 'ConnectBox', font=font30, fill="black")
     # Image version name/number
-    d.text((38, 32), 'slimy frog', font=font14, fill="black")
+    d.text((38, 32), GetReleaseVersion(), font=font14, fill="black")
     
     # connected users
     d.text((13, 35), get_connected_users(), font=font20, fill="black")
