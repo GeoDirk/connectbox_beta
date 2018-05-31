@@ -54,7 +54,8 @@ PIN_LOW = "0"
 def draw_logo():
     device = get_device()
 
-    img_path = os.path.abspath('connectbox_logo.png')
+    dir_path = os.path.dirname(os.path.abspath(__file__))
+    img_path = dir_path + '/assets/connectbox_logo.png'
     logo = Image.open(img_path).convert("RGBA")
     fff = Image.new(logo.mode, logo.size, (255,) * 4)
     background = Image.new("RGBA", device.size, "black")

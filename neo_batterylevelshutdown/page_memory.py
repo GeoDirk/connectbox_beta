@@ -71,7 +71,7 @@ def draw_page(device):
     txt = Image.new('RGBA', base.size, (255,255,255,0))
 
     # get a font
-    font_path = os.path.abspath('connectbox.ttf')
+    font_path = dir_path + '/assets/connectbox.ttf'
     font20 = ImageFont.truetype(font_path, 22)
     font18 = ImageFont.truetype(font_path, 18)
     font14 = ImageFont.truetype(font_path, 14)
