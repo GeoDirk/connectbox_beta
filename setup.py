@@ -13,6 +13,11 @@ with open('HISTORY.rst') as history_file:
 
 requirements = [
     'Click>=6.0',
+    'smbus2==0.2.0',
+    'axp209==0.0.2',
+    'pillow==5.1.0',
+    'luma.core==1.7.2',
+    'luma.oled==2.4.1',
 ]
 
 # No setup requirements (distutils extensions, etc.)
