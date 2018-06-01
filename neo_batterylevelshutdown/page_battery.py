@@ -10,17 +10,13 @@
 ===========================================
 """
 
-import sys
 import os.path
-import time
 from PIL import Image
 from PIL import ImageFont
 from PIL import ImageDraw
-from luma.core import cmdline, error
-from luma.core.render import canvas
 import axp209
 
-from .HAT_Utilities import get_device, display_settings
+from .HAT_Utilities import get_device
 
 
 def draw_page(device):

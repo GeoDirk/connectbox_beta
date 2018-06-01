@@ -10,26 +10,14 @@
 ===========================================
 """
 
-import sys
 import os.path
-import time
 from PIL import Image
 from PIL import ImageFont
 from PIL import ImageDraw
-from luma.core import cmdline, error
-from luma.core.render import canvas
-from datetime import datetime
 import subprocess
 import axp209
 
-from .HAT_Utilities import get_device, display_settings, GetReleaseVersion
-
-
-try:
-    import psutil
-except ImportError:
-    print("The psutil library was not found. Run 'sudo -H pip install psutil' to install it.")
-    sys.exit()
+from .HAT_Utilities import get_device, GetReleaseVersion
 
 
 def get_connected_users():

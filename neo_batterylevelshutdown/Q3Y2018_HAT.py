@@ -12,15 +12,8 @@
 import logging
 import os
 import time
-import threading
-import sys
 import os.path
 from PIL import Image
-from PIL import ImageFont
-from luma.core import cmdline, error
-from luma.core.render import canvas
-import axp209
-import subprocess
 from . import page_none
 from . import page_main
 from . import page_battery
@@ -28,9 +21,7 @@ from . import page_info
 from . import page_stats
 from . import page_memory
 
-from enum import Enum
-
-from .HAT_Utilities import setup_gpio_pin, readPin, blink_LEDxTimes, get_device
+from .HAT_Utilities import setup_gpio_pin, readPin, get_device
 
 
 class Pages:

@@ -10,8 +10,7 @@
 ===========================================
 """
 
-import sys
-from .HAT_Utilities import get_device, display_settings
+from .HAT_Utilities import get_device
 
 
 def draw_page(device):

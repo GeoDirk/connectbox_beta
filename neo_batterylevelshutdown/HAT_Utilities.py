@@ -12,7 +12,6 @@
 import logging
 import os
 import time
-import threading
 import sys
 import os.path
 from luma.core import cmdline, error
