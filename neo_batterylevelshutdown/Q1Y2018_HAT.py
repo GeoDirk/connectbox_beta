@@ -106,4 +106,4 @@ def entryPoint():
 
     monitorVoltageUntilShutdown()
     logging.info("Exiting for Shutdown\n")
-    # os.system("shutdown now") <-TODO enable for production
+    os.system("shutdown now")
