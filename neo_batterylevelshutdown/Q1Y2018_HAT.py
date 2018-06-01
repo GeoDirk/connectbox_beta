@@ -13,9 +13,9 @@ import logging
 import os
 import time
 import threading
-from HAT_Utilities import setup_gpio_pin
-from HAT_Utilities import readPin
-from HAT_Utilities import blink_LEDxTimes
+from .HAT_Utilities import setup_gpio_pin
+from .HAT_Utilities import readPin
+from .HAT_Utilities import blink_LEDxTimes
 
 PIN_LED = 6  # PA6 pin
 PIN_VOLT_3_0 = 198  # PG6 pin - shutdown within 10 seconds

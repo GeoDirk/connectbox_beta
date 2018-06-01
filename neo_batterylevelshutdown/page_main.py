@@ -22,7 +22,7 @@ from datetime import datetime
 import subprocess
 import axp209
 
-from HAT_Utilities import get_device, display_settings, GetReleaseVersion
+from .HAT_Utilities import get_device, display_settings, GetReleaseVersion
 
 
 try:

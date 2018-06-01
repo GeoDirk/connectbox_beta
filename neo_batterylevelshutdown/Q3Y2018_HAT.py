@@ -21,17 +21,16 @@ from luma.core import cmdline, error
 from luma.core.render import canvas
 import axp209
 import subprocess
-import page_none
-import page_main
-import page_battery
-import page_info
-import page_stats
-import page_memory
-
+from . import page_none
+from . import page_main
+from . import page_battery
+from . import page_info
+from . import page_stats
+from . import page_memory
 
 from enum import Enum
 
-from HAT_Utilities import setup_gpio_pin, readPin, blink_LEDxTimes, get_device
+from .HAT_Utilities import setup_gpio_pin, readPin, blink_LEDxTimes, get_device
 
 class Pages:
     page_none, page_main, page_info, page_bat, page_memory, page_h1_stats, \

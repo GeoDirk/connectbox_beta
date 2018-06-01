@@ -19,7 +19,7 @@ from luma.core.render import canvas
 import json
 import re
 
-from HAT_Utilities import get_device, display_settings
+from .HAT_Utilities import get_device, display_settings
 
 def readStatsJSON(dt_range):
     with open('/var/www/connectbox/connectbox_default/stats.top10.json') as json_file:  

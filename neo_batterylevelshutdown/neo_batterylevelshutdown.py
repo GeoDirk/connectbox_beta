@@ -12,9 +12,9 @@
 import logging
 import axp209
 
-import Q1Y2018_HAT
-import Q3Y2018_HAT
-from HAT_Utilities import setup_gpio_pin, readPin
+from . import Q1Y2018_HAT
+from . import Q3Y2018_HAT
+from .HAT_Utilities import setup_gpio_pin, readPin
 
 PIN_LED = 6  # PA6 pin
 

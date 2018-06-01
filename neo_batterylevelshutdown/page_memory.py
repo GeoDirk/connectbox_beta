@@ -20,7 +20,7 @@ from luma.core import cmdline, error
 from luma.core.render import canvas
 from datetime import datetime
 
-from HAT_Utilities import get_device, display_settings
+from .HAT_Utilities import get_device, display_settings
 
 
 try:
