@@ -109,8 +109,10 @@ if __name__ == "__main__":
     axp = AXP209()
     print("internal_temperature: %.2fC" % axp.internal_temperature)
     print("battery_exists: %s" % axp.battery_exists)
-    print("battery_charging: %s" % ("charging" if axp.battery_charging else "done"))
-    print("battery_current_direction: %s" % ("charging" if axp.battery_current_direction else "discharging"))
+    print("battery_charging: %s" % \
+            ("charging" if axp.battery_charging else "done"))
+    print("battery_current_direction: %s" % \
+            ("charging" if axp.battery_current_direction else "discharging"))
     print("battery_voltage: %.1fmV" % axp.battery_voltage)
     print("battery_discharge_current: %.1fmA" % axp.battery_discharge_current)
     print("battery_charge_current: %.1fmA" % axp.battery_charge_current)
@@ -118,5 +120,4 @@ if __name__ == "__main__":
     axp.close()
     ================================
 
-    
     """

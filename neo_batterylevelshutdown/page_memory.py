@@ -22,7 +22,8 @@ from .HAT_Utilities import get_device
 try:
     import psutil
 except ImportError:
-    print("The psutil library was not found. Run 'sudo -H pip install psutil' to install it.")
+    print("The psutil library was not found. "
+          "Run 'sudo -H pip install psutil' to install it.")
     sys.exit()
 
 
@@ -73,9 +74,7 @@ def draw_page(device):
 
     # get a font
     font_path = dir_path + '/assets/connectbox.ttf'
-    font20 = ImageFont.truetype(font_path, 22)
     font18 = ImageFont.truetype(font_path, 18)
-    font14 = ImageFont.truetype(font_path, 14)
     # get a drawing context
     d = ImageDraw.Draw(txt)
 

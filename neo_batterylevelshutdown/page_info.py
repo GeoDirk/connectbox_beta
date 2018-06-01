@@ -24,7 +24,8 @@ from .HAT_Utilities import get_device
 try:
     import psutil
 except ImportError:
-    print("The psutil library was not found. Run 'sudo -H pip install psutil' to install it.")
+    print("The psutil library was not found. "
+          "Run 'sudo -H pip install psutil' to install it.")
     sys.exit()
 
 
@@ -53,10 +54,6 @@ def uptime():
 
 
 def get_connected_users():
-    # iw dev wlan0 station dump | grep -c Station
-    # result = subprocess.run(['iw', 'dev wlan0 station dump | grep -c Station'], stdout=subprocess.PIPE)
-    # result.stdout.decode('utf-8')
-
     c = subprocess.run(['iw', 'dev', 'wlan0', 'station',
                         'dump'], stdout=subprocess.PIPE)
     connected_user_count = len([line for line in c.stdout.decode(
@@ -83,7 +80,6 @@ def draw_page(device):
     font_path = dir_path + '/assets/connectbox.ttf'
     font20 = ImageFont.truetype(font_path, 26)
     font18 = ImageFont.truetype(font_path, 18)
-    font14 = ImageFont.truetype(font_path, 14)
     # get a drawing context
     d = ImageDraw.Draw(txt)
 

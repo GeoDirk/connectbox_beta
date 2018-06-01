@@ -26,8 +26,8 @@ from .HAT_Utilities import setup_gpio_pin, readPin, get_device
 
 class Pages:
     page_none, page_main, page_info, page_bat, page_memory, page_h1_stats, \
-        page_h2_stats, page_d1_stats, page_d2_stats, page_w1_stats, page_w2_stats, \
-        page_m1_stats, page_m2_stats = range(13)
+        page_h2_stats, page_d1_stats, page_d2_stats, page_w1_stats, \
+        page_w2_stats, page_m1_stats, page_m2_stats = range(13)
 
 
 PAGE_COUNT = 12  # range of Pages Class minus 1
@@ -81,26 +81,26 @@ def ProcessButtons(curPage, L_Button, M_Button, R_Button):
     R button is ???
     '''
     bChange = False
-    if L_Button == True:
+    if L_Button:
         # move forward in the page stack
         if curPage == PAGE_COUNT:
             curPage = 0
         else:
             curPage += 1
         bChange = True
-    elif M_Button == True:
+    elif M_Button:
         # move backward in the page stack
         if curPage == 0:
             curPage = PAGE_COUNT
         else:
             curPage -= 1
         bChange = True
-    elif R_Button == True:
+    elif R_Button:
         # Right button - turn on/off display
         curPage = 0
         bChange = True
 
-    if bChange == True:
+    if bChange:
         if curPage == Pages.page_none:
             page_none.main()
         elif curPage == Pages.page_main:

@@ -18,7 +18,8 @@ from .HAT_Utilities import get_device
 
 
 def readStatsJSON(dt_range):
-    with open('/var/www/connectbox/connectbox_default/stats.top10.json') as json_file:
+    STATS_FILE = '/var/www/connectbox/connectbox_default/stats.top10.json'
+    with open(STATS_FILE) as json_file:
         data = json.load(json_file)
         print('============================')
         print('     ' + dt_range)

@@ -21,10 +21,6 @@ from .HAT_Utilities import get_device, GetReleaseVersion
 
 
 def get_connected_users():
-    # iw dev wlan0 station dump | grep -c Station
-    # result = subprocess.run(['iw', 'dev wlan0 station dump | grep -c Station'], stdout=subprocess.PIPE)
-    # result.stdout.decode('utf-8')
-
     c = subprocess.run(['iw', 'dev', 'wlan0', 'station',
                         'dump'], stdout=subprocess.PIPE)
     connected_user_count = len([line for line in c.stdout.decode(
@@ -89,7 +85,7 @@ def draw_page(device):
             x = int((57 - 37) * (percent / 100)) + 37
             d.rectangle((37, 51, x, 58), fill="black")
 
-       # percent charge left
+    # percent charge left
     d.text((75, 49), "%.0f%%" % axp.battery_gauge, font=font14, fill="black")
     axp.close()
     # cpu temp
@@ -97,10 +93,6 @@ def draw_page(device):
 
     out = Image.alpha_composite(img, txt)
     device.display(out.convert(device.mode))
-
-    '''
-    cat /sys/devices/virtual/thermal/thermal_zone0/temp | awk '{ printf ("%0.1f°C\n",$1/1000 c); }'
-    '''
 
 
 def main():
