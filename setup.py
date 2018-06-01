@@ -3,7 +3,7 @@
 
 """The setup script."""
 
-from setuptools import setup, find_packages
+from setuptools import setup
 
 with open('README.rst') as readme_file:
     readme = readme_file.read()
@@ -27,6 +27,7 @@ setup_requirements = [
 
 # No test requirements
 test_requirements = [
+    'flake8==3.5.0',
 ]
 
 setup(
@@ -38,13 +39,14 @@ setup(
     author="ConnectBox Developers",
     author_email='edwin@wordspeak.org',
     url='https://github.com/ConnectBox/neo_batterylevelshutdown',
-    packages=find_packages(include=['neo_batterylevelshutdown']),
+    packages=['neo_batterylevelshutdown'],
+    package_data={'neo_batterylevelshutdown': ['assets/*.png',
+                                               'assets/connectbox.ttf',]},
     entry_points={
         'console_scripts': [
             'neo_batterylevelshutdown=neo_batterylevelshutdown.cli:main'
         ]
     },
-    include_package_data=True,
     install_requires=requirements,
     license="MIT license",
     zip_safe=False,
