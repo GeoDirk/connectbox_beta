@@ -75,10 +75,6 @@ def entryPoint():
         Q3Y2018_HAT.entryPoint()
     else:
         print("No HATtype Determined")
-        pass
-
-    logging.info("Exiting for Shutdown\n")
-    # os.system("shutdown now")  # <--todo remove this for production
 
 
 if __name__ == "__main__":
@@ -86,38 +82,3 @@ if __name__ == "__main__":
         entryPoint()
     except KeyboardInterrupt:
         pass
-
-    """
-    NOTES:
-
-    Get number of active WiFi connections:
-    iw dev wlan0 station dump | grep -c Station
-    ================================
-    Get shell command's output into Python:
-    from:
-
-    https://stackoverflow.com/questions/4760215/running-shell-command-from-python-and-capturing-the-output#4760517
-
-    import subprocess
-    result = subprocess.run(['ls', '-l'], stdout=subprocess.PIPE)
-    result.stdout.decode('utf-8')
-    ================================
-    system uptime:
-
-    uptime -p
-    ================================
-    axp = AXP209()
-    print("internal_temperature: %.2fC" % axp.internal_temperature)
-    print("battery_exists: %s" % axp.battery_exists)
-    print("battery_charging: %s" % \
-            ("charging" if axp.battery_charging else "done"))
-    print("battery_current_direction: %s" % \
-            ("charging" if axp.battery_current_direction else "discharging"))
-    print("battery_voltage: %.1fmV" % axp.battery_voltage)
-    print("battery_discharge_current: %.1fmA" % axp.battery_discharge_current)
-    print("battery_charge_current: %.1fmA" % axp.battery_charge_current)
-    print("battery_gauge: %d%%" % axp.battery_gauge)
-    axp.close()
-    ================================
-
-    """
