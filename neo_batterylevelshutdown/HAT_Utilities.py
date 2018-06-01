@@ -23,6 +23,7 @@ GPIO_EXPORT_FILE = "/sys/class/gpio/export"
 PIN_HIGH = "1"
 PIN_LOW = "0"
 
+
 def setup_gpio_pin(pinNum, direction):
     """Setup the GPIO Pin for operation in the system OS"""
     if not os.path.isfile(GPIO_EXPORT_FILE):
@@ -67,6 +68,7 @@ def blink_LEDxTimes(pinNum, times):
         return False
     return True
 
+
 def GetReleaseVersion():
     """Read the release version"""
     try:
@@ -87,11 +89,12 @@ def readPin(pinNum):
         logging.warn("Error reading from pin %s", pinNum)
     return -1
 
-def get_device(actual_args=None): 
+
+def get_device(actual_args=None):
     """
     Create device from command-line arguments and return it.
     """
-    #default to port 0 if nothing has been entered in as an argument
+    # default to port 0 if nothing has been entered in as an argument
     if str(sys.argv[1:]) == '[]':
         sys.argv[1:] = ['--i2c-port', '0']
 
@@ -111,9 +114,10 @@ def get_device(actual_args=None):
     except error.Error as e:
         parser.error(e)
 
-    #print(display_settings(args))
+    # print(display_settings(args))
 
     return device
+
 
 def display_settings(args):
     """

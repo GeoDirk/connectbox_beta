@@ -30,6 +30,7 @@ except ImportError:
     print("The psutil library was not found. Run 'sudo -H pip install psutil' to install it.")
     sys.exit()
 
+
 def bytes2human(n):
     """
     >>> bytes2human(10000)
@@ -47,33 +48,39 @@ def bytes2human(n):
             return '%s%s' % (value, s)
     return "%sB" % n
 
+
 def uptime():
     # uptime
     uptime = datetime.now() - datetime.fromtimestamp(psutil.boot_time())
     return "Up: %s" % (str(uptime).split('.')[0])
 
-def get_connected_users():
-    #iw dev wlan0 station dump | grep -c Station
-    #result = subprocess.run(['iw', 'dev wlan0 station dump | grep -c Station'], stdout=subprocess.PIPE)
-    #result.stdout.decode('utf-8')
 
-    c = subprocess.run(['iw', 'dev', 'wlan0', 'station', 'dump'], stdout=subprocess.PIPE)
-    connected_user_count = len([line for line in c.stdout.decode("utf-8").split('\n') if line.startswith("Station")])
+def get_connected_users():
+    # iw dev wlan0 station dump | grep -c Station
+    # result = subprocess.run(['iw', 'dev wlan0 station dump | grep -c Station'], stdout=subprocess.PIPE)
+    # result.stdout.decode('utf-8')
+
+    c = subprocess.run(['iw', 'dev', 'wlan0', 'station',
+                        'dump'], stdout=subprocess.PIPE)
+    connected_user_count = len([line for line in c.stdout.decode(
+        "utf-8").split('\n') if line.startswith("Station")])
     return "%s" % connected_user_count
+
 
 def network(iface):
     return psutil.net_io_counters(pernic=True)[iface]
 
+
 def draw_page(device):
     # get an image
     dir_path = os.path.dirname(os.path.abspath(__file__))
-    img_path =  dir_path + '/assets/info_page.png'
+    img_path = dir_path + '/assets/info_page.png'
     base = Image.open(img_path).convert('RGBA')
     fff = Image.new(base.mode, base.size, (255,) * 4)
     img = Image.composite(base, fff, base)
 
     # make a blank image for the text, initialized to transparent text color
-    txt = Image.new('RGBA', base.size, (255,255,255,0))
+    txt = Image.new('RGBA', base.size, (255, 255, 255, 0))
 
     # get a font
     font_path = dir_path + '/assets/connectbox.ttf'
@@ -88,23 +95,26 @@ def draw_page(device):
 
     # connected users
     d.text((20, 30), get_connected_users(), font=font20, fill="black")
-    
+
     # network stats
     try:
-        stat = network('wlan0')       
-        d.text((58, 35), "Tx: %s" % bytes2human(stat.bytes_sent), font=font18, fill="black")
-        d.text((58, 47), "Rx: %s" % bytes2human(stat.bytes_recv), font=font18, fill="black")
+        stat = network('wlan0')
+        d.text((58, 35), "Tx: %s" % bytes2human(
+            stat.bytes_sent), font=font18, fill="black")
+        d.text((58, 47), "Rx: %s" % bytes2human(
+            stat.bytes_recv), font=font18, fill="black")
     except KeyError:
         # no wifi enabled/available
         pass
-         
+
     out = Image.alpha_composite(img, txt)
     device.display(out.convert(device.mode))
+
 
 def main():
     device = get_device()
     draw_page(device)
-    #while True:
+    # while True:
     #    i = 1
     return
 

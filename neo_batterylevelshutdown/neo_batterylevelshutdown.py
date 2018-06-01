@@ -18,9 +18,12 @@ from .HAT_Utilities import setup_gpio_pin, readPin
 
 PIN_LED = 6  # PA6 pin
 
-#setup enums which define the various versions of HAT hardware
+# setup enums which define the various versions of HAT hardware
+
+
 class HATtype:
     Q1Y2018, Q3Y2018 = range(2)
+
 
 def neoHatIsPresent():
     """
@@ -35,6 +38,7 @@ def neoHatIsPresent():
     """
     return setup_gpio_pin(PIN_LED, "in") and readPin(PIN_LED) is True
 
+
 def checkForHATVersion():
     """
     We need to define which HAT is on the unit.  If this is a HAT from the
@@ -47,10 +51,11 @@ def checkForHATVersion():
         return HATtype.Q3Y2018
     except OSError:
         logging.info("Q1Y2018 Detected")
-        return  HATtype.Q1Y2018
+        return HATtype.Q1Y2018
     except KeyboardInterrupt:
         pass
-    return  HATtype.Q1Y2018
+    return HATtype.Q1Y2018
+
 
 def entryPoint():
     if not neoHatIsPresent():
@@ -59,13 +64,13 @@ def entryPoint():
         return True
 
     hatType = checkForHATVersion()
-    
+
     if hatType == HATtype.Q1Y2018:
-        #100 Unit run HAT
+        # 100 Unit run HAT
         print("HATtype.Q1Y2018 Detected")
         Q1Y2018_HAT.entryPoint()
     elif hatType == HATtype.Q3Y2018:
-        #OLED Version
+        # OLED Version
         print("HATtype.Q3Y2018 Detected")
         Q3Y2018_HAT.entryPoint()
     else:
@@ -73,7 +78,7 @@ def entryPoint():
         pass
 
     logging.info("Exiting for Shutdown\n")
-    #os.system("shutdown now")  # <--todo remove this for production
+    # os.system("shutdown now")  # <--todo remove this for production
 
 
 if __name__ == "__main__":

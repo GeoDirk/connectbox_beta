@@ -28,6 +28,7 @@ GPIO_EXPORT_FILE = "/sys/class/gpio/export"
 PIN_HIGH = "1"
 PIN_LOW = "0"
 
+
 def initializePins():
     logging.info("Intializing Pins")
     return setup_gpio_pin(PIN_LED, "out") and \
@@ -98,6 +99,7 @@ def monitorVoltageUntilShutdown():
 
         time.sleep(1)
 
+
 def entryPoint():
     if not initializePins():
         logging.error("Errors during pin setup. Aborting")
@@ -105,4 +107,4 @@ def entryPoint():
 
     monitorVoltageUntilShutdown()
     logging.info("Exiting for Shutdown\n")
-    #os.system("shutdown now") <-TODO enable for production
+    # os.system("shutdown now") <-TODO enable for production

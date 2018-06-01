@@ -15,14 +15,15 @@ from .HAT_Utilities import get_device, display_settings
 
 
 def draw_page(device):
-    #turn off the OLED
+    # turn off the OLED
     device.cleanup()
+
 
 def main():
     device = get_device()
     draw_page(device)
     return
-    
+
 
 if __name__ == "__main__":
     try:
