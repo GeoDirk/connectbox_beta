@@ -176,5 +176,6 @@ def entryPoint():
         return False
 
     Main_Q3Y2018()
-    logging.info("Exiting for Shutdown\n")
-    # os.system("shutdown now") <-TODO enable for production
+    # If we were exiting the main loop on some battery-low signal,
+    #  we'd have a logging statement and shutdown command here as
+    #  we do with the Q1Y2018 HAT.

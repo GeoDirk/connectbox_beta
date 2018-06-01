@@ -88,7 +88,7 @@ def draw_page(device):
     d.text((85, 21), "%s" % bytes2human(usage.used), font=font18, fill="black")
 
     # disk usage
-    usage = disk_usage('/media/usb0')  # <--TODO put in the right mount point
+    usage = disk_usage('/media/usb0')
     d.text((50, 42), "%.0f%%" % usage.percent, font=font18, fill="black")
     d.text((85, 42), "%s" % bytes2human(usage.used), font=font18, fill="black")
 
