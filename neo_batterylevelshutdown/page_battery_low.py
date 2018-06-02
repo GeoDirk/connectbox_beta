@@ -12,9 +12,6 @@
 
 import os.path
 from PIL import Image
-from PIL import ImageFont
-from PIL import ImageDraw
-
 from .HAT_Utilities import get_device
 
 

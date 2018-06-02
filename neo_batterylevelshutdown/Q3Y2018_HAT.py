@@ -132,6 +132,7 @@ def ProcessButtons(curPage, L_Button, M_Button, R_Button):
 
     return curPage
 
+
 def CheckBatteryLevel(level):
     # open up the battery monitoring library
     axp = axp209.AXP209()
@@ -143,12 +144,14 @@ def CheckBatteryLevel(level):
         axp.close()
         return False
 
+
 def BatteryPresent():
     # open up the battery monitoring library
     axp = axp209.AXP209()
     bRet = axp.battery_exists
     axp.close()
     return bRet
+
 
 def Main_Q3Y2018():
     """
@@ -181,7 +184,7 @@ def Main_Q3Y2018():
             timeout = int(round(time.time() * 1000))
             curPage = ProcessButtons(curPage, L, M, R)
         else:
-            #leave the battery shutdown page up if present
+            # leave the battery shutdown page up if present
             if not bShutdownStart:
                 # check for OLED timeout
                 curTime = int(round(time.time() * 1000))
@@ -195,12 +198,12 @@ def Main_Q3Y2018():
 
         # check the battery level
         iCheckBat += 1
-        if iCheckBat > 70: #70 = ~30 seconds
-            #check if battery present
+        if iCheckBat > 70:  # 70 = ~30 seconds
+            # check if battery present
             if BatteryPresent():
                 logging.info("Bat Loop\n")
                 iCheckBat = 0
-                if CheckBatteryLevel(4): # 4 = 4% battery level
+                if CheckBatteryLevel(4):  # 4 = 4% battery level
                     logging.info("Battery Check TRUE\n")
                     bShutdownStart = False
                     iShutdownTimer = 0
@@ -217,7 +220,7 @@ def Main_Q3Y2018():
         # start a loop to see if we need to shutdown
         if bShutdownStart:
             iShutdownTimer += 1
-            if iShutdownTimer > 140: #140 = ~60 seconds
+            if iShutdownTimer > 140:  # 140 = ~60 seconds
                 logging.info("Exiting for Shutdown\n")
                 page_none.main()
                 os.system("shutdown now")

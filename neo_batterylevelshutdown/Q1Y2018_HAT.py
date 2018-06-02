@@ -10,6 +10,7 @@
 ===========================================
 """
 import logging
+import os
 import time
 import threading
 from .HAT_Utilities import setup_gpio_pin
