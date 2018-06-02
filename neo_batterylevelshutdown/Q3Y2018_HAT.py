@@ -13,6 +13,7 @@ import logging
 import os
 import time
 import os.path
+import axp209
 from PIL import Image
 from . import page_none
 from . import page_main
@@ -20,6 +21,7 @@ from . import page_battery
 from . import page_info
 from . import page_stats
 from . import page_memory
+from . import page_battery_low
 
 from .HAT_Utilities import setup_gpio_pin, readPin, get_device
 
@@ -130,6 +132,23 @@ def ProcessButtons(curPage, L_Button, M_Button, R_Button):
 
     return curPage
 
+def CheckBatteryLevel(level):
+    # open up the battery monitoring library
+    axp = axp209.AXP209()
+    logging.info("Battery Level: " + str(axp.battery_gauge) + "%")
+    if axp.battery_gauge > level:
+        axp.close()
+        return True
+    else:
+        axp.close()
+        return False
+
+def BatteryPresent():
+    # open up the battery monitoring library
+    axp = axp209.AXP209()
+    bRet = axp.battery_exists
+    axp.close()
+    return bRet
 
 def Main_Q3Y2018():
     """
@@ -151,6 +170,10 @@ def Main_Q3Y2018():
     curPage = Pages.page_none
     page_none.main()
     # loop through the buttons looking for changes
+    # and check the battery state
+    iCheckBat = 0
+    iShutdownTimer = 0
+    bShutdownStart = False
     while True:
         L, M, R = CheckButtonState()
         if L + M + R > 0:
@@ -158,15 +181,46 @@ def Main_Q3Y2018():
             timeout = int(round(time.time() * 1000))
             curPage = ProcessButtons(curPage, L, M, R)
         else:
-            # check for OLED timeout
-            curTime = int(round(time.time() * 1000))
-            if (curTime - timeout) > (OLED_TIMEOUT * 1000):
-                # timeout hit reset the clock and clear the display
-                timeout = int(round(time.time() * 1000))
-                curPage = Pages.page_none
-                page_none.main()
+            #leave the battery shutdown page up if present
+            if not bShutdownStart:
+                # check for OLED timeout
+                curTime = int(round(time.time() * 1000))
+                if (curTime - timeout) > (OLED_TIMEOUT * 1000):
+                    # timeout hit reset the clock and clear the display
+                    timeout = int(round(time.time() * 1000))
+                    curPage = Pages.page_none
+                    page_none.main()
 
         time.sleep(0.4)
+
+        # check the battery level
+        iCheckBat += 1
+        if iCheckBat > 70: #70 = ~30 seconds
+            #check if battery present
+            if BatteryPresent():
+                logging.info("Bat Loop\n")
+                iCheckBat = 0
+                if CheckBatteryLevel(4): # 4 = 4% battery level
+                    logging.info("Battery Check TRUE\n")
+                    bShutdownStart = False
+                    iShutdownTimer = 0
+                    # we are above the limit so reset display
+                    if curPage != Pages.page_none:
+                        curPage = Pages.page_none
+                        page_none.main()
+                else:
+                    logging.info("Battery Check FALSE\n")
+                    # display battery low page
+                    bShutdownStart = True
+                    page_battery_low.main()
+
+        # start a loop to see if we need to shutdown
+        if bShutdownStart:
+            iShutdownTimer += 1
+            if iShutdownTimer > 140: #140 = ~60 seconds
+                logging.info("Exiting for Shutdown\n")
+                page_none.main()
+                os.system("shutdown now")
     return
 
 
