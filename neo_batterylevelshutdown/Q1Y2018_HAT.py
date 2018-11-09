@@ -46,7 +46,7 @@ def monitorVoltageUntilShutdown():
     while bContinue:
         # check if voltage is above 3.6V
         PIN_VOLT_ = readPin(PIN_VOLT_3_6)
-        logging.info("Value PIN_VOLT_3_6: %s", PIN_VOLT_)
+        logging.debug("Value PIN_VOLT_3_6: %s", PIN_VOLT_)
         if PIN_VOLT_:
             try:
                 with open("/sys/class/gpio/gpio{}/value".format(PIN_LED),

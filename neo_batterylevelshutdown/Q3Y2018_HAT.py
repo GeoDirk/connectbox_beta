@@ -201,10 +201,10 @@ def Main_Q3Y2018():
         if iCheckBat > 70:  # 70 = ~30 seconds
             # check if battery present
             if BatteryPresent():
-                logging.info("Bat Loop\n")
+                logging.debug("Bat Loop\n")
                 iCheckBat = 0
                 if CheckBatteryLevel(4):  # 4 = 4% battery level
-                    logging.info("Battery Check TRUE\n")
+                    logging.debug("Battery Check TRUE\n")
                     bShutdownStart = False
                     iShutdownTimer = 0
                     # we are above the limit so reset display
@@ -212,7 +212,7 @@ def Main_Q3Y2018():
                         curPage = Pages.page_none
                         page_none.main()
                 else:
-                    logging.info("Battery Check FALSE\n")
+                    logging.debug("Battery Check FALSE\n")
                     # display battery low page
                     bShutdownStart = True
                     page_battery_low.main()
