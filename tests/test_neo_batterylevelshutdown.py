@@ -7,7 +7,6 @@
 import unittest
 from click.testing import CliRunner
 
-from neo_batterylevelshutdown import neo_batterylevelshutdown
 from neo_batterylevelshutdown import cli
 
 
