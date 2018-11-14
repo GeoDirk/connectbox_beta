@@ -88,6 +88,16 @@ def readPin(pinNum):
         logging.warn("Error reading from pin %s", pinNum)
     return -1
 
+def writePin(pinNum, value):
+    try:
+        with open("/sys/class/gpio/gpio{}/value".format(PIN_LED),
+                  "w") as pin:
+            pin.write(PIN_LOW)
+    except OSError:
+        logging.warn("Error writing to pin %s", PIN_LED)
+        return False
+
+    return True
 
 def get_device(actual_args=None):
     """
