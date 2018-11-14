@@ -55,47 +55,51 @@ def monitorVoltageUntilShutdown():
             except OSError:
                 logging.warn("Error writing to pin %s", PIN_LED)
             time.sleep(9)
+            continue
+
+        # check if voltage is above 3.4V
+        PIN_VOLT_ = readPin(PIN_VOLT_3_4)
+        if PIN_VOLT_:
+            t = threading.Thread(target=blink_LEDxTimes,
+                                 args=(PIN_LED, 1,))
+            threads.append(t)
+            t.start()
+            time.sleep(6)
+            continue
+
+        # check if voltage is above 3.2V
+        PIN_VOLT_ = readPin(PIN_VOLT_3_2)
+        if PIN_VOLT_:
+            t = threading.Thread(target=blink_LEDxTimes,
+                                 args=(PIN_LED, 2,))
+            threads.append(t)
+            t.start()
+            time.sleep(4)
+            continue
+
+        # check if voltage is above 3.0V
+        PIN_VOLT_ = readPin(PIN_VOLT_3_0)
+        if PIN_VOLT_:
+            t = threading.Thread(target=blink_LEDxTimes,
+                                 args=(PIN_LED, 3,))
+            threads.append(t)
+            t.start()
+            # pin volage above 3V so reset iteration
+            iIteration = 0
+            time.sleep(4)
+            continue
+
+        # pin voltage is below 3V so we need to do a few
+        # iterations to make sure that we are still getting
+        # the same info each time
+        iIteration += 1
+        if iIteration > 3:
+            bContinue = False
         else:
-            # check if voltage is above 3.4V
-            PIN_VOLT_ = readPin(PIN_VOLT_3_4)
-            if PIN_VOLT_:
-                t = threading.Thread(target=blink_LEDxTimes,
-                                     args=(PIN_LED, 1,))
-                threads.append(t)
-                t.start()
-                time.sleep(6)
-            else:
-                # check if voltage is above 3.2V
-                PIN_VOLT_ = readPin(PIN_VOLT_3_2)
-                if PIN_VOLT_:
-                    t = threading.Thread(target=blink_LEDxTimes,
-                                         args=(PIN_LED, 2,))
-                    threads.append(t)
-                    t.start()
-                    time.sleep(4)
-                else:
-                    # check if voltage is above 3.0V
-                    PIN_VOLT_ = readPin(PIN_VOLT_3_0)
-                    if PIN_VOLT_:
-                        t = threading.Thread(target=blink_LEDxTimes,
-                                             args=(PIN_LED, 3,))
-                        threads.append(t)
-                        t.start()
-                        # pin volage above 3V so reset iteration
-                        iIteration = 0
-                        time.sleep(4)
-                    else:
-                        # pin voltage is below 3V so we need to do a few
-                        # iterations to make sure that we are still getting
-                        # the same info each time
-                        iIteration += 1
-                        if iIteration > 3:
-                            bContinue = False
-                        else:
-                            t = threading.Thread(target=blink_LEDxTimes,
-                                                 args=(PIN_LED, 4,))
-                            threads.append(t)
-                            t.start()
+            t = threading.Thread(target=blink_LEDxTimes,
+                                 args=(PIN_LED, 4,))
+            threads.append(t)
+            t.start()
 
         time.sleep(1)
 
