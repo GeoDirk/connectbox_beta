@@ -80,7 +80,7 @@ def GetReleaseVersion():
 
 def readPin(pinNum):
     """Read the value from some input pin"""
-    logging.info("Reading pin %s", pinNum)
+    logging.debug("Reading pin %s", pinNum)
     try:
         with open("/sys/class/gpio/gpio{}/value".format(pinNum), 'r') as pin:
             return str(pin.read(1)) == "1"
