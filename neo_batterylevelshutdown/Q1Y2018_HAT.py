@@ -19,7 +19,7 @@ from .HAT_Utilities import writePin
 from .HAT_Utilities import blink_LEDxTimes
 
 PIN_LED = 6  # PA6 pin
-PIN_VOLT_3_0 = 198  # PG6 pin - shutdown within 10 seconds
+PIN_VOLT_3_0 = 198  # PG6 pin - shutdown within 30 seconds
 PIN_VOLT_3_2 = 199  # PG7 pin - above 3.2V
 PIN_VOLT_3_4 = 200  # PG8 pin - above 3.4V
 PIN_VOLT_3_6 = 201  # PG9 pin - above 3.6V
@@ -52,34 +52,32 @@ def initializePins():
         setup_gpio_pin(PIN_VOLT_3_6, "in")
 
 
-def monitorVoltageUntilShutdown():
+def mainLoop():
+    """
+    monitors battery voltage and shuts down the device when levels are low
+    """
     iIteration = 0
-    bContinue = True
     logging.info("Starting Monitoring")
-    while bContinue:
+    while True:
         with min_execution_time(min_time_secs=10):
             # check if voltage is above 3.6V
-            PIN_VOLT_ = readPin(PIN_VOLT_3_6)
-            if PIN_VOLT_:
+            if readPin(PIN_VOLT_3_6):
                 # Show solid LED
-                writePin(PIN_LED, PIN_LOW)
+                writePin(PIN_LED, "0")
                 continue
 
             # check if voltage is above 3.4V
-            PIN_VOLT_ = readPin(PIN_VOLT_3_4)
-            if PIN_VOLT_:
+            if readPin(PIN_VOLT_3_4):
                 blink_LEDxTimes(PIN_LED, 1)
                 continue
 
             # check if voltage is above 3.2V
-            PIN_VOLT_ = readPin(PIN_VOLT_3_2)
-            if PIN_VOLT_:
+            if readPin(PIN_VOLT_3_2):
                 blink_LEDxTimes(PIN_LED, 2)
                 continue
 
             # check if voltage is above 3.0V
-            PIN_VOLT_ = readPin(PIN_VOLT_3_0)
-            if PIN_VOLT_:
+            if readPin(PIN_VOLT_3_0):
                 blink_LEDxTimes(PIN_LED, 3)
                 # pin voltage above 3V so reset iteration
                 # XXX - if voltage transitions from 2.9->3.3 then this will
@@ -92,7 +90,8 @@ def monitorVoltageUntilShutdown():
             # the same info each time
             iIteration += 1
             if iIteration > 3:
-                bContinue = False
+                # Time to shutdown
+                break
             else:
                 blink_LEDxTimes(PIN_LED, 4)
 
@@ -102,6 +101,6 @@ def entryPoint():
         logging.error("Errors during pin setup. Aborting")
         return False
 
-    monitorVoltageUntilShutdown()
-    logging.info("Exiting for Shutdown\n")
+    mainLoop()
+    logging.info("Exiting for Shutdown")
     os.system("shutdown now")
