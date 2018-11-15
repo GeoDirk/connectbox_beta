@@ -24,6 +24,7 @@ PIN_VOLT_3_2 = 199  # PG7 pin - above 3.2V
 PIN_VOLT_3_4 = 200  # PG8 pin - above 3.4V
 PIN_VOLT_3_6 = 201  # PG9 pin - above 3.6V
 GPIO_EXPORT_FILE = "/sys/class/gpio/export"
+DEFAULT_LOW_VOLTAGE_ITERATIONS_BEFORE_SHUTDOWN = 3
 
 
 @contextmanager
@@ -56,7 +57,7 @@ def mainLoop():
     """
     monitors battery voltage and shuts down the device when levels are low
     """
-    iIteration = 0
+    lv_iterations_remaining = DEFAULT_LOW_VOLTAGE_ITERATIONS_BEFORE_SHUTDOWN
     logging.info("Starting Monitoring")
     while True:
         with min_execution_time(min_time_secs=10):
@@ -82,14 +83,15 @@ def mainLoop():
                 # pin voltage above 3V so reset iteration
                 # XXX - if voltage transitions from 2.9->3.3 then this will
                 #       not be reset. Consider robustifying
-                iIteration = 0
+                lv_iterations_remaining = \
+                    DEFAULT_LOW_VOLTAGE_ITERATIONS_BEFORE_SHUTDOWN
                 continue
 
             # pin voltage is below 3V so we need to do a few
             # iterations to make sure that we are still getting
             # the same info each time
-            iIteration += 1
-            if iIteration > 3:
+            lv_iterations_remaining -= 1
+            if lv_iterations_remaining == 0:
                 # Time to shutdown
                 break
             else:
