@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-
 """
 ===========================================
   HAT_Utilities.py
@@ -21,6 +20,7 @@ GPIO_EXPORT_FILE = "/sys/class/gpio/export"
 
 PIN_HIGH = "1"
 PIN_LOW = "0"
+PIN_LED = 6  # PA6 pin
 
 
 def setup_gpio_pin(pinNum, direction):
@@ -88,6 +88,7 @@ def readPin(pinNum):
         logging.warn("Error reading from pin %s", pinNum)
     return -1
 
+
 def writePin(pinNum, value):
     try:
         with open("/sys/class/gpio/gpio{}/value".format(PIN_LED),
@@ -98,6 +99,7 @@ def writePin(pinNum, value):
         return False
 
     return True
+
 
 def get_device(actual_args=None):
     """
