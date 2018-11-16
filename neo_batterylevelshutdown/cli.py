@@ -7,7 +7,8 @@ import logging
 import axp209
 import click
 
-from . import Q1Y2018_HAT, Q3Y2018_HAT, Q4Y2018_HAT, null_HAT
+from . import Q3Y2018_HAT, Q4Y2018_HAT
+from .hats import DummyHAT, q1y2018HAT
 from .HAT_Utilities import setup_gpio_pin, readPin
 
 PIN_LED = 6  # PA6 pin
@@ -31,11 +32,11 @@ def neoHatIsPresent():
 def getHATVersion():
     if not neoHatIsPresent():
         logging.info("NEO HAT not detected")
-        return null_HAT
+        return DummyHAT()
 
     if not setup_gpio_pin(PIN_PA1, "in"):
         logging.info("NEO HAT not detected based on failed PA1 setup")
-        return null_HAT
+        return DummyHAT()
 
     try:
         axp = axp209.AXP209()
@@ -51,11 +52,11 @@ def getHATVersion():
     except OSError:
         # There is no AXP209 on the Q12018 HAT
         logging.info("Q1Y2018 HAT Detected")
-        return Q1Y2018_HAT
+        return q1y2018HAT()
     except KeyboardInterrupt:
         pass
 
-    return null_HAT
+    return DummyHAT()
 
 
 @click.command()
