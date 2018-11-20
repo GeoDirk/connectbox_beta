@@ -110,7 +110,8 @@ def get_device(actual_args=None):
         sys.argv[1:] = ['--i2c-port', '0']
 
     if actual_args is None:
-        actual_args = sys.argv[1:]
+        # FIXME - hoist to cli
+        actual_args = ['--i2c-port', '0']
     parser = cmdline.create_parser(description='luma.examples arguments')
     args = parser.parse_args(actual_args)
 
