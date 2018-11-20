@@ -7,8 +7,7 @@ import logging
 import axp209
 import click
 
-from . import Q3Y2018_HAT, Q4Y2018_HAT
-from .hats import DummyHAT, q1y2018HAT
+import neo_batterylevelshutdown.hats as hats
 from .HAT_Utilities import setup_gpio_pin, readPin
 
 PIN_LED = 6  # PA6 pin
@@ -32,11 +31,11 @@ def neoHatIsPresent():
 def getHATVersion():
     if not neoHatIsPresent():
         logging.info("NEO HAT not detected")
-        return DummyHAT()
+        return hats.DummyHAT
 
     if not setup_gpio_pin(PIN_PA1, "in"):
         logging.info("NEO HAT not detected based on failed PA1 setup")
-        return DummyHAT()
+        return hats.DummyHAT
 
     try:
         axp = axp209.AXP209()
@@ -45,18 +44,18 @@ def getHATVersion():
         # Test PA1... LOW => Q4Y2018; HIGH => Q3Y2018
         if readPin(PIN_PA1) is False:
             logging.info("Q4Y2018 HAT Detected")
-            return Q4Y2018_HAT
+            return hats.q4y2018HAT
         else:
             logging.info("Q3Y2018 HAT Detected")
-            return Q3Y2018_HAT
+            return hats.q3y2018HAT
     except OSError:
         # There is no AXP209 on the Q12018 HAT
         logging.info("Q1Y2018 HAT Detected")
-        return q1y2018HAT()
+        return hats.q1y2018HAT
     except KeyboardInterrupt:
         pass
 
-    return DummyHAT()
+    return DummyHAT
 
 
 @click.command()
@@ -69,7 +68,7 @@ def main(verbose):
 
     hat = getHATVersion()
     logging.info("starting main loop")
-    hat.entryPoint()
+    hat().entryPoint()
 
 
 if __name__ == "__main__":
