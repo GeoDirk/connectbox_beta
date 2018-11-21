@@ -59,20 +59,15 @@ class AbstractHAT(object):
         # Fail if any of the pins can't be setup
         for pin, direction in self.pins_to_initialise:
             if setup_gpio_pin(pin, direction):
-                logging.error("Unable to setup pin %s with direction %s",
-                              pin, direction
-                              )
+                logging.warning("Unable to setup pin %s with direction %s",
+                                pin, direction
+                                )
                 initialisationSuccess = False
         return initialisationSuccess
 
     def entryPoint(self):
-        # XXX - throwing away the return value to allow pre-release hardware
-        #       to be used
+        # Throw away the return value to allow pre-release hardware to be used
         self.initializePins()
-        #if not self.initializePins():
-        #    logging.error("Errors during pin setup. Aborting")
-        #    return False
-
         self.mainLoop()
         logging.info("Exiting for Shutdown")
         os.system("shutdown now")
@@ -99,6 +94,7 @@ class q1y2018HAT(AbstractHAT):
             (self.PIN_VOLT_3_4, "in"),
             (self.PIN_VOLT_3_6, "in")
         ]
+        super().__init__()
 
     def mainLoop(self):
         """
@@ -154,6 +150,9 @@ class Pages:
 
 class OledHAT(AbstractHAT):
 
+    def __init__(self):
+        self.axp = axp209.AXP209()
+
     @staticmethod
     def draw_logo():
         device = get_device()
@@ -173,11 +172,11 @@ class OledHAT(AbstractHAT):
             if newPage == Pages.page_none:
                 page_none.main()
             elif newPage == Pages.page_main:
-                page_main.main()
+                page_main.main(self.axp)
             elif newPage == Pages.page_info:
                 page_info.main()
             elif newPage == Pages.page_bat:
-                page_battery.main()
+                page_battery.main(self.axp)
             elif newPage == Pages.page_memory:
                 page_memory.main()
             elif newPage == Pages.page_h1_stats:
@@ -200,22 +199,11 @@ class OledHAT(AbstractHAT):
         return newPage
 
     def CheckBatteryLevel(self, level):
-        # open up the battery monitoring library
-        axp = axp209.AXP209()
-        logging.info("Battery Level: " + str(axp.battery_gauge) + "%")
-        if axp.battery_gauge > level:
-            axp.close()
-            return True
-        else:
-            axp.close()
-            return False
+        logging.info("Battery Level: " + str(self.axp.battery_gauge) + "%")
+        return self.axp.battery_gauge > level
 
     def BatteryPresent(self):
-        # open up the battery monitoring library
-        axp = axp209.AXP209()
-        bRet = axp.battery_exists
-        axp.close()
-        return bRet
+        return self.axp.battery_exists
 
     def mainLoop(self):
         # draw the connectbox logo
@@ -298,6 +286,7 @@ class q3y2018HAT(OledHAT):
             (self.PIN_M_BUTTON, "in"),
             (self.PIN_R_BUTTON, "in")
         ]
+        super().__init__()
 
     def CheckButtonState(self):
         L_Button = not readPin(self.PIN_L_BUTTON)
@@ -352,7 +341,8 @@ class q4y2018HAT(OledHAT):
     def CheckButtonState(self):
         L_Button = not readPin(self.PIN_L_BUTTON)
         R_Button = not readPin(self.PIN_R_BUTTON)
-        # print("L:%s R:%s" % (L_Button, R_Button))
+        logging.debug("Button state L:%s R:%s",
+                      L_Button, R_Button)
         return L_Button, R_Button
 
     def ProcessButtons(self, curPage, L_Button, R_Button):

@@ -15,7 +15,6 @@ from PIL import Image
 from PIL import ImageFont
 from PIL import ImageDraw
 import subprocess
-import axp209
 
 from .HAT_Utilities import get_device, GetReleaseVersion
 
@@ -34,7 +33,7 @@ def get_cpu_temp():
     return int(tempC)/1000
 
 
-def draw_page(device):
+def draw_page(device, axp):
     # get an image
     dir_path = os.path.dirname(os.path.abspath(__file__))
     img_path = dir_path + '/assets/main_page.png'
@@ -62,9 +61,6 @@ def draw_page(device):
     # connected users
     d.text((13, 35), get_connected_users(), font=font20, fill="black")
 
-    # open up the battery monitoring library
-    axp = axp209.AXP209()
-
     if not axp.power_input_status.acin_present:
         # not charging - cover up symbol
         d.rectangle((64, 48, 71, 61), fill="white")  # charge symbol
@@ -87,7 +83,6 @@ def draw_page(device):
 
     # percent charge left
     d.text((75, 49), "%.0f%%" % axp.battery_gauge, font=font14, fill="black")
-    axp.close()
     # cpu temp
     d.text((105, 49), "%.0fC" % get_cpu_temp(), font=font14, fill="black")
 
@@ -95,9 +90,9 @@ def draw_page(device):
     device.display(out.convert(device.mode))
 
 
-def main():
+def main(axp):
     device = get_device()
-    draw_page(device)
+    draw_page(device, axp)
     return
 
 

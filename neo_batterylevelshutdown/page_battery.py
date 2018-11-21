@@ -14,15 +14,11 @@ import os.path
 from PIL import Image
 from PIL import ImageFont
 from PIL import ImageDraw
-import axp209
 
 from .HAT_Utilities import get_device
 
 
-def draw_page(device):
-    # open up the battery monitoring library
-    axp = axp209.AXP209()
-
+def draw_page(device, axp):
     dir_path = os.path.dirname(os.path.abspath(__file__))
     # find out if the unit is charging or not
     # get an image
@@ -84,29 +80,13 @@ def draw_page(device):
             x = int((38 - 20) * (percent / 100)) + 20
             # print("X:" + str(x))
             d.rectangle((20, 5, x, 12), fill="black")
-    '''
-    print("internal_temperature: %.2fC" % axp.internal_temperature)
-    print("battery_exists: %s" % axp.battery_exists)
-    print("battery_charging: %s" % \
-            ("charging" if axp.battery_charging else "done"))
-    print("battery_current_direction: %s" % \
-            ("charging" if axp.battery_current_direction else "discharging"))
-    print("battery_voltage: %.1fmV" % axp.battery_voltage)
-    print("battery_discharge_current: %.1fmA" % axp.battery_discharge_current)
-    print("battery_charge_current: %.1fmA" % axp.battery_charge_current)
-    print("battery_gauge: %d%%" % axp.battery_gauge)
-    '''
-    axp.close()
-
     out = Image.alpha_composite(img, txt)
     device.display(out.convert(device.mode))
 
 
-def main():
+def main(axp):
     device = get_device()
-    draw_page(device)
-    # while True:
-    #    i = 1
+    draw_page(device, axp)
     return
 
 
