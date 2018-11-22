@@ -105,15 +105,10 @@ def get_device(actual_args=None):
     """
     Create device from command-line arguments and return it.
     """
-    # default to port 0 if nothing has been entered in as an argument
-    if str(sys.argv[1:]) == '[]':
-        sys.argv[1:] = ['--i2c-port', '0']
-
-    if actual_args is None:
-        # FIXME - hoist to cli
-        actual_args = ['--i2c-port', '0']
     parser = cmdline.create_parser(description='luma.examples arguments')
-    args = parser.parse_args(actual_args)
+    # We only every use i2c-port 0. We may be able to define this in a nicer
+    #  way... but this is ok for the moment
+    args = parser.parse_args(['--i2c-port', '0'])
 
     if args.config:
         # load config from file
