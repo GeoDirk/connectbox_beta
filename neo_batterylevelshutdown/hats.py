@@ -58,7 +58,7 @@ class AbstractHAT(object):
         logging.info("Intializing Pins")
         # Fail if any of the pins can't be setup
         for pin, direction in self.pins_to_initialise:
-            if setup_gpio_pin(pin, direction):
+            if not setup_gpio_pin(pin, direction):
                 logging.warning("Unable to setup pin %s with direction %s",
                                 pin, direction
                                 )
@@ -198,7 +198,7 @@ class OledHAT(AbstractHAT):
 
         return newPage
 
-    def CheckBatteryLevel(self, level):
+    def batteryLevelAbovePercent(self, level):
         logging.info("Battery Level: " + str(self.axp.battery_gauge) + "%")
         return self.axp.battery_gauge > level
 
@@ -249,7 +249,7 @@ class OledHAT(AbstractHAT):
                 if self.BatteryPresent():
                     logging.debug("Bat Loop\n")
                     iCheckBat = 0
-                    if self.CheckBatteryLevel(4):  # 4 = 4% battery level
+                    if self.batteryLevelAbovePercent(4):
                         logging.debug("Battery Check TRUE\n")
                         bShutdownStart = False
                         iShutdownTimer = 0
