@@ -264,7 +264,10 @@ class OledHAT(AbstractHAT):
                         displayPowerOffTime = scheduledShutdownTime + 1
                         page_battery_low.main()
 
-            if time.time() > scheduledShutdownTime:
+                nextBatteryCheckTime = \
+                    time.time() + self.BATTERY_CHECK_FREQUENCY_SECS
+
+            if scheduledShutdownTime and time.time() > scheduledShutdownTime:
                 page_none.draw_page(self.display_device)
                 # exit to trigger a shutdown
                 break
