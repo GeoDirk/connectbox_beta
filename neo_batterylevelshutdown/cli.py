@@ -55,7 +55,7 @@ def getHATVersion():
     except KeyboardInterrupt:
         pass
 
-    return DummyHAT
+    return hats.DummyHAT
 
 
 @click.command()

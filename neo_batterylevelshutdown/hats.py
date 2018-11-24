@@ -150,56 +150,63 @@ class Pages:
 
 class OledHAT(AbstractHAT):
 
+    SHUTDOWN_WARNING_PERIOD_SECS = 60
+    BATTERY_CHECK_FREQUENCY_SECS = 30
+    BATTERY_SHUTDOWN_THRESHOLD_PERC = 4
+    DISPLAY_TIMEOUT_SECS = 20
+
     def __init__(self):
         self.axp = axp209.AXP209()
+        self.display_device = get_device()
 
-    @staticmethod
-    def draw_logo():
-        device = get_device()
-
+    def draw_logo(self):
         dir_path = os.path.dirname(os.path.abspath(__file__))
         img_path = dir_path + '/assets/connectbox_logo.png'
         logo = Image.open(img_path).convert("RGBA")
         fff = Image.new(logo.mode, logo.size, (255,) * 4)
-        background = Image.new("RGBA", device.size, "black")
-        posn = ((device.width - logo.width) // 2, 0)
+        background = Image.new("RGBA", self.display_device.size, "black")
+        posn = ((self.display_device.width - logo.width) // 2, 0)
         img = Image.composite(logo, fff, logo)
         background.paste(img, posn)
-        device.display(background.convert(device.mode))
+        self.display_device.display(
+            background.convert(self.display_device.mode)
+        )
 
     def TransitionPage(self, bChange, newPage):
         if bChange:
             if newPage == Pages.page_none:
-                page_none.main()
+                page_none.draw_page(self.display_device)
             elif newPage == Pages.page_main:
-                page_main.main(self.axp)
+                page_main.draw_page(self.display_device, self.axp)
             elif newPage == Pages.page_info:
-                page_info.main()
+                page_info.draw_page(self.display_device)
             elif newPage == Pages.page_bat:
-                page_battery.main(self.axp)
+                page_battery.draw_page(self.display_device, self.axp)
             elif newPage == Pages.page_memory:
-                page_memory.main()
+                page_memory.draw_page(self.display_device)
             elif newPage == Pages.page_h1_stats:
-                page_stats.main('hour', 1)
+                page_stats.draw_page(self.display_device, 'hour', 1)
             elif newPage == Pages.page_h2_stats:
-                page_stats.main('hour', 2)
+                page_stats.draw_page(self.display_device, 'hour', 2)
             elif newPage == Pages.page_d1_stats:
-                page_stats.main('day', 1)
+                page_stats.draw_page(self.display_device, 'day', 1)
             elif newPage == Pages.page_d2_stats:
-                page_stats.main('day', 2)
+                page_stats.draw_page(self.display_device, 'day', 2)
             elif newPage == Pages.page_w1_stats:
-                page_stats.main('week', 1)
+                page_stats.draw_page(self.display_device, 'week', 1)
             elif newPage == Pages.page_w2_stats:
-                page_stats.main('week', 2)
+                page_stats.draw_page(self.display_device, 'week', 2)
             elif newPage == Pages.page_m1_stats:
-                page_stats.main('month', 1)
+                page_stats.draw_page(self.display_device, 'month', 1)
             elif newPage == Pages.page_m2_stats:
-                page_stats.main('month', 2)
+                page_stats.draw_page(self.display_device, 'month', 2)
 
+        # Take the device out of low-power mode i.e. turn on the display
+        self.display_device.show()
         return newPage
 
     def batteryLevelAbovePercent(self, level):
-        logging.info("Battery Level: " + str(self.axp.battery_gauge) + "%")
+        logging.debug("Battery Level: " + str(self.axp.battery_gauge) + "%")
         return self.axp.battery_gauge > level
 
     def BatteryPresent(self):
@@ -210,66 +217,57 @@ class OledHAT(AbstractHAT):
         self.draw_logo()
         time.sleep(3)
 
+        # no shutdown currently scheduled
+        scheduledShutdownTime = 0
         # set an OLED display timeout
-        OLED_TIMEOUT = 20  # seconds
-        timeout = int(round(time.time() * 1000))
+        displayPowerOffTime = time.time() + self.DISPLAY_TIMEOUT_SECS
+        nextBatteryCheckTime = time.time() + self.BATTERY_CHECK_FREQUENCY_SECS
 
         # start with a blank page
         curPage = Pages.page_none
-        page_none.main()
+        page_none.draw_page(self.display_device)
         # loop through the buttons looking for changes
         # and check the battery state
-        iCheckBat = 0
-        iShutdownTimer = 0
-        bShutdownStart = False
         while True:
             buttonState = self.CheckButtonState()
             if sum(buttonState) > 0:
                 # at least one button was pressed
-                timeout = int(round(time.time() * 1000))
                 changed, newPage = self.ProcessButtons(curPage, *buttonState)
                 curPage = self.TransitionPage(changed, newPage)
-            else:
-                # leave the battery shutdown page up if present
-                if not bShutdownStart:
-                    # check for OLED timeout
-                    curTime = int(round(time.time() * 1000))
-                    if (curTime - timeout) > (OLED_TIMEOUT * 1000):
-                        # timeout hit reset the clock and clear the display
-                        timeout = int(round(time.time() * 1000))
-                        curPage = Pages.page_none
-                        page_none.main()
+                # reset the display power off time
+                displayPowerOffTime = time.time() + self.DISPLAY_TIMEOUT_SECS
+
+            if time.time() > displayPowerOffTime:
+                # Power off the display
+                if curPage != Pages.page_none:
+                    curPage = Pages.page_none
+                    page_none.draw_page(self.display_device)
 
             time.sleep(0.4)
 
-            # check the battery level
-            iCheckBat += 1
-            if iCheckBat > 70:  # 70 = ~30 seconds
-                # check if battery present
-                if self.BatteryPresent():
-                    logging.debug("Bat Loop\n")
-                    iCheckBat = 0
-                    if self.batteryLevelAbovePercent(4):
-                        logging.debug("Battery Check TRUE\n")
-                        bShutdownStart = False
-                        iShutdownTimer = 0
-                        # we are above the limit so reset display
-                        if curPage != Pages.page_none:
-                            curPage = Pages.page_none
-                            page_none.main()
-                    else:
-                        logging.debug("Battery Check FALSE\n")
-                        # display battery low page
-                        bShutdownStart = True
+            if time.time() > nextBatteryCheckTime and self.BatteryPresent():
+                if self.batteryLevelAbovePercent(
+                        self.BATTERY_SHUTDOWN_THRESHOLD_PERC):
+                    logging.debug("Battery above warning level")
+                    # Blank display and cancel any pending shutdown
+                    scheduledShutdownTime = 0
+                    if curPage != Pages.page_none:
+                        curPage = Pages.page_none
+                        page_none.draw_page(self.display_device)
+                else:
+                    logging.debug("Battery below warning level")
+                    if not scheduledShutdownTime:
+                        scheduledShutdownTime = \
+                            time.time() + self.SHUTDOWN_WARNING_PERIOD_SECS
+                        # Don't blank the display while we're in the warning
+                        #  period so the low battery warning shows to the end
+                        displayPowerOffTime = scheduledShutdownTime + 1
                         page_battery_low.main()
 
-            # start a loop to see if we need to shutdown
-            if bShutdownStart:
-                iShutdownTimer += 1
-                if iShutdownTimer > 140:  # 140 = ~60 seconds
-                    # exit to trigger a shutdown
-                    page_none.main()
-                    break
+            if time.time() > scheduledShutdownTime:
+                page_none.draw_page(self.display_device)
+                # exit to trigger a shutdown
+                break
         return
 
 

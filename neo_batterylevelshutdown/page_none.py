@@ -15,7 +15,7 @@ from .HAT_Utilities import get_device
 
 def draw_page(device):
     # turn off the OLED
-    device.cleanup()
+    device.hide()
 
 
 def main():
