@@ -174,6 +174,7 @@ class OledHAT(AbstractHAT):
 
     def TransitionPage(self, bChange, newPage):
         if bChange:
+            logging.debug("Transitioning page to %s", newPage)
             if newPage == Pages.page_none:
                 page_none.draw_page(self.display_device)
             elif newPage == Pages.page_main:
@@ -249,9 +250,10 @@ class OledHAT(AbstractHAT):
                 if self.batteryLevelAbovePercent(
                         self.BATTERY_SHUTDOWN_THRESHOLD_PERC):
                     logging.debug("Battery above warning level")
-                    # Blank display and cancel any pending shutdown
-                    scheduledShutdownTime = 0
-                    if curPage != Pages.page_none:
+                    # If we have a pending shutdown, cancel it and blank
+                    #  the display to hide the low battery warning
+                    if scheduledShutdownTime:
+                        scheduledShutdownTime = 0
                         curPage = Pages.page_none
                         page_none.draw_page(self.display_device)
                 else:
