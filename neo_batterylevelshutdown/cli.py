@@ -68,7 +68,7 @@ def main(verbose):
 
     hat = getHATVersion()
     logging.info("starting main loop")
-    hat().entryPoint()
+    hat().mainLoop()
 
 
 if __name__ == "__main__":

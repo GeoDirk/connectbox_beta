@@ -45,17 +45,22 @@ def min_execution_time(min_time_secs):
     duration = time.monotonic() - start_time
     # If the function has run over the min execution time, don't sleep
     period = max(0, min_time_secs - duration)
-    logging.debug("sleeping for %s seconds", period)
+    logging.debug("sleeping for %s seconds to guarantee min exec time", period)
     time.sleep(period)
 
 
 class AbstractHAT(object):
 
+    # PA6 pin
     PIN_LED = 6  # PA6 pin
+
+    def __init__(self):
+        # Throw away the return value to allow pre-release hardware to be used
+        self.initializePins()
 
     def initializePins(self):
         initialisationSuccess = True
-        logging.info("Intializing Pins")
+        logging.info("Initializing Pins")
         # Fail if any of the pins can't be setup
         for pin, direction in self.pins_to_initialise:
             if not setup_gpio_pin(pin, direction):
@@ -65,16 +70,15 @@ class AbstractHAT(object):
                 initialisationSuccess = False
         return initialisationSuccess
 
-    def entryPoint(self):
-        # Throw away the return value to allow pre-release hardware to be used
-        self.initializePins()
-        self.mainLoop()
+    def shutdownDevice(self):
         logging.info("Exiting for Shutdown")
         os.system("shutdown now")
 
 
 class DummyHAT(AbstractHAT):
-    def entryPoint(self):
+    pins_to_initialise = []
+
+    def mainLoop(self):
         logging.info("There is no HAT, so there's nothing to do")
 
 
@@ -121,12 +125,6 @@ class q1y2018HAT(AbstractHAT):
                 if readPin(self.PIN_VOLT_3_2):
                     # Voltage above 3.2V
                     blink_LEDxTimes(self.PIN_LED, 2)
-                    continue
-
-                logging.debug("Battery voltage below 3.2V")
-                if readPin(self.PIN_VOLT_3_0):
-                    # Voltage above 3.0V
-                    blink_LEDxTimes(self.PIN_LED, 3)
                     # Reset the low voltage loop counter in case we're
                     #  recovering from a below-3.0V situation
                     # XXX - if voltage transitions from 2.9->3.3 then this will
@@ -135,19 +133,36 @@ class q1y2018HAT(AbstractHAT):
                         self.DEFAULT_LOW_VOLTAGE_ITERATIONS_BEFORE_SHUTDOWN
                     continue
 
-                logging.info("Battery voltage below 3.0V")
-                # pin voltage is below 3V so we need to do a few
-                # iterations to make sure that we are still getting
-                # the same info each time before triggering a shutdown
-                if lv_iterations_remaining == 0:
-                    logging.info("Exiting main loop for shutdown")
-                    # Time to shutdown
-                    break
-                else:
-                    logging.info("Low voltage iteration %s",
-                                 lv_iterations_remaining)
-                    blink_LEDxTimes(self.PIN_LED, 4)
-                    lv_iterations_remaining -= 1
+                logging.info("Battery voltage below 3.2V")
+                if readPin(self.PIN_VOLT_3_0):
+                    # Voltage above 3.0V
+                    blink_LEDxTimes(self.PIN_LED, 3)
+                    # Given battery voltage is below 3.2V, we want to perform
+                    #  a controlled shutdown so that the hardware cutoff is
+                    #  not triggered (see below).
+                    # We want to make sure we're really below 3.2V, so we read
+                    #  on a few iterations to make sure that we are still
+                    #  getting the same info each time before triggering
+                    #  a controlled shutdown
+                    if lv_iterations_remaining == 0:
+                        logging.warning("Exiting main loop for shutdown")
+                        # Time to shutdown
+                        self.shutdownDevice()
+                    else:
+                        logging.info("Low voltage. %s loop(s) remaining",
+                                     lv_iterations_remaining)
+                        blink_LEDxTimes(self.PIN_LED, 4)
+                        lv_iterations_remaining -= 1
+                        continue
+
+                logging.warning("Battery voltage below 3.0V")
+                # The circuitry on the HAT triggers a shutdown of the 5V
+                #  converter once battery voltage goes below 3.0V. It gives
+                #  an 8 second grace period before yanking the power, so
+                #  if we're here, then we're about to get the power yanked
+                #  anyway so attempt a graceful shutdown immediately.
+                logging.warning("Immediately exiting main loop for shutdown")
+                self.shutdownDevice()
 
 
 class Pages:
@@ -166,6 +181,7 @@ class OledHAT(AbstractHAT):
     def __init__(self):
         self.axp = axp209.AXP209()
         self.display_device = get_device()
+        super().__init__()
 
     def draw_logo(self):
         dir_path = os.path.dirname(os.path.abspath(__file__))
@@ -266,6 +282,7 @@ class OledHAT(AbstractHAT):
                         page_none.draw_page(self.display_device)
                 else:
                     logging.debug("Battery below warning level")
+                    # Schedule a shutdown time if we don't already have one
                     if not scheduledShutdownTime:
                         scheduledShutdownTime = \
                             time.time() + self.SHUTDOWN_WARNING_PERIOD_SECS
@@ -279,10 +296,9 @@ class OledHAT(AbstractHAT):
 
             if scheduledShutdownTime and time.time() > scheduledShutdownTime:
                 page_none.draw_page(self.display_device)
-                # exit to trigger a shutdown
-                break
-        return
+                self.shutdownDevice()
 
+        return
 
 class q3y2018HAT(OledHAT):
 
@@ -348,6 +364,7 @@ class q4y2018HAT(OledHAT):
             (self.PIN_L_BUTTON, "in"),
             (self.PIN_R_BUTTON, "in")
         ]
+        super().__init__()
 
     def CheckButtonState(self):
         L_Button = not readPin(self.PIN_L_BUTTON)
