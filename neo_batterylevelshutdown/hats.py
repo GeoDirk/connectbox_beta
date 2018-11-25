@@ -111,35 +111,42 @@ class q1y2018HAT(AbstractHAT):
                     writePin(self.PIN_LED, "0")
                     continue
 
-                # check if voltage is above 3.4V
+                # check if voltage is below 3.6V
+                logging.debug("Battery voltage below 3.6V")
                 if readPin(self.PIN_VOLT_3_4):
                     blink_LEDxTimes(self.PIN_LED, 1)
                     continue
 
-                # check if voltage is above 3.2V
+                # check if voltage is below 3.4V
+                logging.debug("Battery voltage below 3.4V")
                 if readPin(self.PIN_VOLT_3_2):
                     blink_LEDxTimes(self.PIN_LED, 2)
                     continue
 
-                # check if voltage is above 3.0V
+                # check if voltage is above 3.2V
+                logging.debug("Battery voltage below 3.2V")
                 if readPin(self.PIN_VOLT_3_0):
                     blink_LEDxTimes(self.PIN_LED, 3)
-                    # pin voltage above 3V so reset iteration
+                    # pin voltage above 3V so reset low voltage loop counter
                     # XXX - if voltage transitions from 2.9->3.3 then this will
                     #       not be reset. Consider robustifying
                     lv_iterations_remaining = \
                         self.DEFAULT_LOW_VOLTAGE_ITERATIONS_BEFORE_SHUTDOWN
                     continue
 
+                logging.info("Battery voltage below 3.0V")
                 # pin voltage is below 3V so we need to do a few
                 # iterations to make sure that we are still getting
                 # the same info each time
-                lv_iterations_remaining -= 1
                 if lv_iterations_remaining == 0:
+                    logging.info("Exiting main loop for shutdown")
                     # Time to shutdown
                     break
                 else:
+                    logging.info("Low voltage iteration %s",
+                                 lv_iterations_remaining)
                     blink_LEDxTimes(self.PIN_LED, 4)
+                    lv_iterations_remaining -= 1
 
 
 class Pages:
