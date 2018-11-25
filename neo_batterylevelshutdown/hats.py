@@ -105,29 +105,30 @@ class q1y2018HAT(AbstractHAT):
         logging.info("Starting Monitoring")
         while True:
             with min_execution_time(min_time_secs=10):
-                # check if voltage is above 3.6V
                 if readPin(self.PIN_VOLT_3_6):
+                    # Voltage above 3.6V
                     # Show solid LED
                     writePin(self.PIN_LED, "0")
                     continue
 
-                # check if voltage is below 3.6V
                 logging.debug("Battery voltage below 3.6V")
                 if readPin(self.PIN_VOLT_3_4):
+                    # Voltage above 3.4V
                     blink_LEDxTimes(self.PIN_LED, 1)
                     continue
 
-                # check if voltage is below 3.4V
                 logging.debug("Battery voltage below 3.4V")
                 if readPin(self.PIN_VOLT_3_2):
+                    # Voltage above 3.2V
                     blink_LEDxTimes(self.PIN_LED, 2)
                     continue
 
-                # check if voltage is above 3.2V
                 logging.debug("Battery voltage below 3.2V")
                 if readPin(self.PIN_VOLT_3_0):
+                    # Voltage above 3.0V
                     blink_LEDxTimes(self.PIN_LED, 3)
-                    # pin voltage above 3V so reset low voltage loop counter
+                    # Reset the low voltage loop counter in case we're
+                    #  recovering from a below-3.0V situation
                     # XXX - if voltage transitions from 2.9->3.3 then this will
                     #       not be reset. Consider robustifying
                     lv_iterations_remaining = \
@@ -137,7 +138,7 @@ class q1y2018HAT(AbstractHAT):
                 logging.info("Battery voltage below 3.0V")
                 # pin voltage is below 3V so we need to do a few
                 # iterations to make sure that we are still getting
-                # the same info each time
+                # the same info each time before triggering a shutdown
                 if lv_iterations_remaining == 0:
                     logging.info("Exiting main loop for shutdown")
                     # Time to shutdown
