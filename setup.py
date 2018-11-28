@@ -19,6 +19,7 @@ requirements = [
     'pillow==5.1.0',
     'luma.core==1.7.2',
     'luma.oled==2.4.1',
+    'RPi.GPIO @ https://github.com/auto3000/RPi.GPIO_NP/archive/master.zip'
 ]
 
 # No setup requirements (distutils extensions, etc.)
