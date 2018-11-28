@@ -13,19 +13,17 @@
 from .HAT_Utilities import get_device
 
 
-def draw_page(device):
-    # turn off the OLED
-    device.hide()
+class PageBlank(object):
+    def __init__(self, device):
+        self.device = device
 
-
-def main():
-    device = get_device()
-    draw_page(device)
-    return
+    def draw_page(self):
+        # turn off the OLED
+        self.device.hide()
 
 
 if __name__ == "__main__":
     try:
-        main()
+        PageBlank(get_device()).draw_page()
     except KeyboardInterrupt:
         pass

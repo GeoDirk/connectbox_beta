@@ -27,85 +27,85 @@ except ImportError:
     sys.exit()
 
 
-def bytes2human(n):
-    """
-    >>> bytes2human(10000)
-    '9K'
-    >>> bytes2human(100001221)
-    '95M'
-    """
-    symbols = ('K', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y')
-    prefix = {}
-    for i, s in enumerate(symbols):
-        prefix[s] = 1 << (i + 1) * 10
-    for s in reversed(symbols):
-        if n >= prefix[s]:
-            value = int(float(n) / prefix[s])
-            return '%s%s' % (value, s)
-    return "%sB" % n
+class PageMemory(object):
+    def __init__(self, device):
+        self.device = device
 
+    @staticmethod
+    def bytes2human(n):
+        """
+        >>> bytes2human(10000)
+        '9K'
+        >>> bytes2human(100001221)
+        '95M'
+        """
+        symbols = ('K', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y')
+        prefix = {}
+        for i, s in enumerate(symbols):
+            prefix[s] = 1 << (i + 1) * 10
+        for s in reversed(symbols):
+            if n >= prefix[s]:
+                value = int(float(n) / prefix[s])
+                return '%s%s' % (value, s)
+        return "%sB" % n
 
-def mem_usage():
-    return psutil.virtual_memory()
+    @staticmethod
+    def mem_usage():
+        return psutil.virtual_memory()
 
+    @staticmethod
+    def disk_usage(dir):
+        return psutil.disk_usage(dir)
 
-def disk_usage(dir):
-    return psutil.disk_usage(dir)
+    @staticmethod
+    def cpu_usage():
+        return psutil.cpu_percent(interval=0)
 
+    @staticmethod
+    def network(iface):
+        return psutil.net_io_counters(pernic=True)[iface]
 
-def cpu_usage():
-    return psutil.cpu_percent(interval=0)
+    def draw_page(self):
+        # get an image
+        dir_path = os.path.dirname(os.path.abspath(__file__))
+        img_path = dir_path + '/assets/memory_page.png'
+        base = Image.open(img_path).convert('RGBA')
+        fff = Image.new(base.mode, base.size, (255,) * 4)
+        img = Image.composite(base, fff, base)
 
+        # make a blank image for the text, initialized as transparent
+        txt = Image.new('RGBA', base.size, (255, 255, 255, 0))
 
-def network(iface):
-    return psutil.net_io_counters(pernic=True)[iface]
+        # get a font
+        font_path = dir_path + '/assets/connectbox.ttf'
+        font18 = ImageFont.truetype(font_path, 18)
+        # get a drawing context
+        d = ImageDraw.Draw(txt)
 
+        # cpu usage
+        d.text((50, 1), "%.0f%%" % PageMemory.cpu_usage(),
+               font=font18, fill="black")
 
-def draw_page(device):
-    # get an image
-    dir_path = os.path.dirname(os.path.abspath(__file__))
-    img_path = dir_path + '/assets/memory_page.png'
-    base = Image.open(img_path).convert('RGBA')
-    fff = Image.new(base.mode, base.size, (255,) * 4)
-    img = Image.composite(base, fff, base)
+        # memory usage
+        usage = PageMemory.mem_usage()
+        d.text((50, 21), "%.0f%%" %
+               (100 - usage.percent), font=font18, fill="black")
+        d.text((85, 21), "%s" % PageMemory.bytes2human(usage.used),
+               font=font18, fill="black")
 
-    # make a blank image for the text, initialized to transparent text color
-    txt = Image.new('RGBA', base.size, (255, 255, 255, 0))
+        # disk usage
+        usage = PageMemory.disk_usage('/media/usb0')
+        d.text((50, 42), "%.0f%%" % usage.percent, font=font18, fill="black")
+        d.text((85, 42), "%s" % PageMemory.bytes2human(usage.used),
+               font=font18, fill="black")
 
-    # get a font
-    font_path = dir_path + '/assets/connectbox.ttf'
-    font18 = ImageFont.truetype(font_path, 18)
-    # get a drawing context
-    d = ImageDraw.Draw(txt)
-
-    # cpu usage
-    d.text((50, 1), "%.0f%%" % cpu_usage(), font=font18, fill="black")
-
-    # memory usage
-    usage = mem_usage()
-    d.text((50, 21), "%.0f%%" %
-           (100 - usage.percent), font=font18, fill="black")
-    d.text((85, 21), "%s" % bytes2human(usage.used), font=font18, fill="black")
-
-    # disk usage
-    usage = disk_usage('/media/usb0')
-    d.text((50, 42), "%.0f%%" % usage.percent, font=font18, fill="black")
-    d.text((85, 42), "%s" % bytes2human(usage.used), font=font18, fill="black")
-
-    out = Image.alpha_composite(img, txt)
-    device.display(out.convert(device.mode))
-
-
-def main():
-    device = get_device()
-    draw_page(device)
-    # while True:
-    #    i = 1
-    return
+        out = Image.alpha_composite(img, txt)
+        self.device.display(out.convert(self.device.mode))
+        self.device.show()
 
 
 if __name__ == "__main__":
     try:
-        main()
+        PageMemory(get_device()).draw_page()
     except KeyboardInterrupt:
         pass

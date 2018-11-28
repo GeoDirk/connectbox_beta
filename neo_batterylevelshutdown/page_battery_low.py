@@ -15,28 +15,25 @@ from PIL import Image
 from .HAT_Utilities import get_device
 
 
-def draw_page(device):
-    dir_path = os.path.dirname(os.path.abspath(__file__))
+class PageBatteryLow(object):
+    def __init__(self, device):
+        self.device = device
 
-    img_path = dir_path + '/assets/battery_low.png'
+    def draw_page(self):
+        dir_path = os.path.dirname(os.path.abspath(__file__))
 
-    base = Image.open(img_path).convert('RGBA')
-    fff = Image.new(base.mode, base.size, (255,) * 4)
-    img = Image.composite(base, fff, base)
+        img_path = dir_path + '/assets/battery_low.png'
 
-    device.display(img.convert(device.mode))
+        base = Image.open(img_path).convert('RGBA')
+        fff = Image.new(base.mode, base.size, (255,) * 4)
+        img = Image.composite(base, fff, base)
 
-
-def main():
-    device = get_device()
-    draw_page(device)
-    # while True:
-    #    i = 1
-    return
+        self.device.display(img.convert(self.device.mode))
+        self.device.show()
 
 
 if __name__ == "__main__":
     try:
-        main()
+        PageBatteryLow(get_device()).draw_page()
     except KeyboardInterrupt:
         pass

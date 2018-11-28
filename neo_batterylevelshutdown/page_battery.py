@@ -14,84 +14,85 @@ import os.path
 from PIL import Image
 from PIL import ImageFont
 from PIL import ImageDraw
-
+import axp209
 from .HAT_Utilities import get_device
 
 
-def draw_page(device, axp):
-    dir_path = os.path.dirname(os.path.abspath(__file__))
-    # find out if the unit is charging or not
-    # get an image
-    img_path = dir_path + '/assets/battery_page.png'
+class PageBattery(object):
+    def __init__(self, device, axp):
+        self.device = device
+        self.axp = axp
 
-    base = Image.open(img_path).convert('RGBA')
-    fff = Image.new(base.mode, base.size, (255,) * 4)
-    img = Image.composite(base, fff, base)
+    def draw_page(self):
+        dir_path = os.path.dirname(os.path.abspath(__file__))
+        # find out if the unit is charging or not
+        # get an image
+        img_path = dir_path + '/assets/battery_page.png'
 
-    # make a blank image for the text, initialized to transparent text color
-    txt = Image.new('RGBA', base.size, (255, 255, 255, 0))
+        base = Image.open(img_path).convert('RGBA')
+        fff = Image.new(base.mode, base.size, (255,) * 4)
+        img = Image.composite(base, fff, base)
 
-    # get a font
-    font_path = dir_path + '/assets/connectbox.ttf'
-    font18 = ImageFont.truetype(font_path, 18)
-    font14 = ImageFont.truetype(font_path, 14)
-    # get a drawing context
-    d = ImageDraw.Draw(txt)
+        # make a blank image for the text, initialized as transparent
+        txt = Image.new('RGBA', base.size, (255, 255, 255, 0))
 
-    # draw text, full opacity
-    d.text((5, 42), "%.0f" %
-           int(axp.battery_voltage), font=font18, fill="black")
-    d.text((52, 42), "%.1f" %
-           axp.internal_temperature, font=font18, fill="black")
+        # get a font
+        font_path = dir_path + '/assets/connectbox.ttf'
+        font18 = ImageFont.truetype(font_path, 18)
+        font14 = ImageFont.truetype(font_path, 14)
+        # get a drawing context
+        d = ImageDraw.Draw(txt)
 
-    if axp.power_input_status.acin_present:
-        # charging
-        # cover the out arrow
-        d.rectangle((47, 4, 62, 14), fill="white")  # out arrow
-        # percent charge left
-        d.text((50, 1), "%.0f%%" %
-               axp.battery_gauge, font=font18, fill="black")
-        d.text((94, 42), "%.0f" %
-               axp.battery_charge_current, font=font18, fill="black")
-    else:
-        # discharging
-        # cover the charging symbol & in arrow
-        d.rectangle((119, 0, 127, 16), fill="white")  # charge symbol
-        d.rectangle((0, 4, 14, 14), fill="white")  # in arrow
-        # percent charge left
-        d.text((63, 1), "%.0f%%" %
-               axp.battery_gauge, font=font18, fill="black")
-        d.text((94, 42), "%.0f" %
-               axp.battery_discharge_current, font=font18, fill="black")
+        # draw text, full opacity
+        d.text((5, 42), "%.0f" %
+               int(self.axp.battery_voltage), font=font18, fill="black")
+        d.text((52, 42), "%.1f" %
+               self.axp.internal_temperature, font=font18, fill="black")
 
-    # draw battery fill lines
-    if not axp.battery_exists:
-        # cross out the battery
-        d.line((20, 5, 38, 12), fill="black", width=2)
-        d.line((20, 12, 38, 5), fill="black", width=2)
-    else:
-        # get the percent filled and draw a rectangle
-        percent = axp.battery_gauge
-        if percent > 0 and percent < 10:
-            d.rectangle((20, 5, 22, 12), fill="black")
-            d.text((15, 2), "!", font=font14, fill="black")
-        elif percent > 10:
-            # start of battery level= 20px, end = 38px
-            x = int((38 - 20) * (percent / 100)) + 20
-            # print("X:" + str(x))
-            d.rectangle((20, 5, x, 12), fill="black")
-    out = Image.alpha_composite(img, txt)
-    device.display(out.convert(device.mode))
+        if self.axp.power_input_status.acin_present:
+            # charging
+            # cover the out arrow
+            d.rectangle((47, 4, 62, 14), fill="white")  # out arrow
+            # percent charge left
+            d.text((50, 1), "%.0f%%" %
+                   self.axp.battery_gauge, font=font18, fill="black")
+            d.text((94, 42), "%.0f" %
+                   self.axp.battery_charge_current, font=font18, fill="black")
+        else:
+            # discharging
+            # cover the charging symbol & in arrow
+            d.rectangle((119, 0, 127, 16), fill="white")  # charge symbol
+            d.rectangle((0, 4, 14, 14), fill="white")  # in arrow
+            # percent charge left
+            d.text((63, 1), "%.0f%%" %
+                   self.axp.battery_gauge, font=font18, fill="black")
+            d.text((94, 42), "%.0f" %
+                   self.axp.battery_discharge_current,
+                   font=font18, fill="black")
 
-
-def main(axp):
-    device = get_device()
-    draw_page(device, axp)
-    return
+        # draw battery fill lines
+        if not self.axp.battery_exists:
+            # cross out the battery
+            d.line((20, 5, 38, 12), fill="black", width=2)
+            d.line((20, 12, 38, 5), fill="black", width=2)
+        else:
+            # get the percent filled and draw a rectangle
+            percent = self.axp.battery_gauge
+            if percent > 0 and percent < 10:
+                d.rectangle((20, 5, 22, 12), fill="black")
+                d.text((15, 2), "!", font=font14, fill="black")
+            elif percent > 10:
+                # start of battery level= 20px, end = 38px
+                x = int((38 - 20) * (percent / 100)) + 20
+                # print("X:" + str(x))
+                d.rectangle((20, 5, x, 12), fill="black")
+        out = Image.alpha_composite(img, txt)
+        self.device.display(out.convert(self.device.mode))
+        self.device.show()
 
 
 if __name__ == "__main__":
     try:
-        main()
+        PageBattery(get_device(), axp209.AXP209()).draw_page()
     except KeyboardInterrupt:
         pass
