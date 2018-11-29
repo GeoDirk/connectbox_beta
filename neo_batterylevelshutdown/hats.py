@@ -65,7 +65,6 @@ class q1y2018HAT(AbstractHAT):
     PIN_VOLT_3_6 = PG9 = 18
 
     def __init__(self):
-        GPIO.setmode(GPIO.BOARD)
         logging.info("Initializing Pins")
         GPIO.setup(self.PIN_LED, GPIO.OUT)
         # perjaps we can use pull_up_down args here and get rid of pa service?
