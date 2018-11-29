@@ -60,7 +60,11 @@ def main(verbose):
     GPIO.setmode(GPIO.BOARD)
     hat = getHATVersion()
     logging.info("starting main loop")
-    hat().mainLoop()
+    try:
+        hat().mainLoop()
+    except KeyboardInterrupt:
+        GPIO.cleanup()       # clean up GPIO on CTRL+C exit
+    GPIO.cleanup()           # clean up GPIO on normal exit
 
 
 if __name__ == "__main__":
