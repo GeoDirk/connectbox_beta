@@ -6,9 +6,6 @@ import os
 import os.path
 import time
 import axp209
-from .HAT_Utilities import setup_gpio_pin
-from .HAT_Utilities import readPin
-from .HAT_Utilities import writePin
 from .HAT_Utilities import get_device
 from .HAT_Utilities import blink_LEDxTimes
 from PIL import Image
@@ -19,17 +16,7 @@ from . import page_info
 from . import page_stats
 from . import page_memory
 from . import page_battery_low
-
-# Common
-GPIO_EXPORT_FILE = "/sys/class/gpio/export"
-
-PAGE_COUNT = 12  # range of Pages Class minus 1
-
-
-# Q3Y2018 - OLED Unit run specific pins
-
-PIN_HIGH = "1"
-PIN_LOW = "0"
+import RPi.GPIO as GPIO
 
 
 @contextmanager
@@ -51,24 +38,10 @@ def min_execution_time(min_time_secs):
 
 class AbstractHAT(object):
 
-    # PA6 pin
-    PIN_LED = 6  # PA6 pin
+    PIN_LED = PA6 = 12
 
     def __init__(self):
-        # Throw away the return value to allow pre-release hardware to be used
-        self.initializePins()
-
-    def initializePins(self):
-        initialisationSuccess = True
-        logging.info("Initializing Pins")
-        # Fail if any of the pins can't be setup
-        for pin, direction in self.pins_to_initialise:
-            if not setup_gpio_pin(pin, direction):
-                logging.warning("Unable to setup pin %s with direction %s",
-                                pin, direction
-                                )
-                initialisationSuccess = False
-        return initialisationSuccess
+        pass
 
     def shutdownDevice(self):
         logging.info("Exiting for Shutdown")
@@ -85,19 +58,22 @@ class DummyHAT(AbstractHAT):
 class q1y2018HAT(AbstractHAT):
 
     DEFAULT_LOW_VOLTAGE_ITERATIONS_BEFORE_SHUTDOWN = 3
-    PIN_VOLT_3_0 = 198  # PG6 pin - shutdown within 30 seconds
-    PIN_VOLT_3_2 = 199  # PG7 pin - above 3.2V
-    PIN_VOLT_3_4 = 200  # PG8 pin - above 3.4V
-    PIN_VOLT_3_6 = 201  # PG9 pin - above 3.6V
+    # Pin numbers from https://github.com/auto3000/RPi.GPIO_NP
+    PIN_VOLT_3_0 = PG6 = 8
+    PIN_VOLT_3_2 = PG7 = 10
+    PIN_VOLT_3_4 = PG8 = 16
+    PIN_VOLT_3_6 = PG9 = 18
 
     def __init__(self):
-        self.pins_to_initialise = [
-            (self.PIN_LED, "out"),
-            (self.PIN_VOLT_3_0, "in"),
-            (self.PIN_VOLT_3_2, "in"),
-            (self.PIN_VOLT_3_4, "in"),
-            (self.PIN_VOLT_3_6, "in")
-        ]
+        GPIO.setmode(GPIO.BOARD)
+        logging.info("Initializing Pins")
+        GPIO.setup(self.PIN_LED, GPIO.OUT)
+        # perjaps we can use pull_up_down args here and get rid of pa service?
+        GPIO.setup(self.PIN_VOLT_3_0, GPIO.IN)
+        GPIO.setup(self.PIN_VOLT_3_2, GPIO.IN)
+        GPIO.setup(self.PIN_VOLT_3_4, GPIO.IN)
+        GPIO.setup(self.PIN_VOLT_3_6, GPIO.IN)
+        logging.info("Pin initialization complete")
         super().__init__()
 
     def mainLoop(self):
@@ -109,20 +85,21 @@ class q1y2018HAT(AbstractHAT):
         logging.info("Starting Monitoring")
         while True:
             with min_execution_time(min_time_secs=10):
-                if readPin(self.PIN_VOLT_3_6):
+                if GPIO.input(self.PIN_VOLT_3_6):
                     # Voltage above 3.6V
                     # Show solid LED
-                    writePin(self.PIN_LED, "0")
+                    logging.debug("Battery voltage above 3.6V")
+                    GPIO.output(self.PIN_LED, GPIO.LOW)
                     continue
 
                 logging.debug("Battery voltage below 3.6V")
-                if readPin(self.PIN_VOLT_3_4):
+                if GPIO.input(self.PIN_VOLT_3_4):
                     # Voltage above 3.4V
                     blink_LEDxTimes(self.PIN_LED, 1)
                     continue
 
                 logging.debug("Battery voltage below 3.4V")
-                if readPin(self.PIN_VOLT_3_2):
+                if GPIO.input(self.PIN_VOLT_3_2):
                     # Voltage above 3.2V
                     blink_LEDxTimes(self.PIN_LED, 2)
                     # Reset the low voltage loop counter in case we're
@@ -134,7 +111,7 @@ class q1y2018HAT(AbstractHAT):
                     continue
 
                 logging.info("Battery voltage below 3.2V")
-                if readPin(self.PIN_VOLT_3_0):
+                if GPIO.input(self.PIN_VOLT_3_0):
                     # Voltage above 3.0V
                     blink_LEDxTimes(self.PIN_LED, 3)
                     # Given battery voltage is below 3.2V, we want to perform
@@ -163,12 +140,6 @@ class q1y2018HAT(AbstractHAT):
                 #  anyway so attempt a graceful shutdown immediately.
                 logging.warning("Immediately exiting main loop for shutdown")
                 self.shutdownDevice()
-
-
-class Pages:
-    page_none, page_main, page_info, page_bat, page_memory, page_h1_stats, \
-        page_h2_stats, page_d1_stats, page_d2_stats, page_w1_stats, \
-        page_w2_stats, page_m1_stats, page_m2_stats = range(13)
 
 
 class OledHAT(AbstractHAT):
@@ -290,23 +261,22 @@ class OledHAT(AbstractHAT):
 
 class q3y2018HAT(OledHAT):
 
-    PIN_L_BUTTON = 1  # PA1 left button
-    PIN_M_BUTTON = 199  # PG7 middle button
-    PIN_R_BUTTON = 200  # PG8 pin right button
+    # Pin numbers from https://github.com/auto3000/RPi.GPIO_NP
+    PIN_L_BUTTON = PA1 = 22
+    PIN_M_BUTTON = PG7 = 10
+    PIN_R_BUTTON = PG8 = 16
 
     def __init__(self):
-        self. pins_to_initialise = [
-            (self.PIN_LED, "out"),
-            (self.PIN_L_BUTTON, "in"),
-            (self.PIN_M_BUTTON, "in"),
-            (self.PIN_R_BUTTON, "in")
-        ]
+        GPIO.setup(self.PIN_LED, GPIO.OUT)
+        GPIO.setup(self.PIN_L_BUTTON, GPIO.IN)
+        GPIO.setup(self.PIN_M_BUTTON, GPIO.IN)
+        GPIO.setup(self.PIN_R_BUTTON, GPIO.IN)
         super().__init__()
 
     def CheckButtonState(self):
-        L_Button = not readPin(self.PIN_L_BUTTON)
-        M_Button = not readPin(self.PIN_M_BUTTON)
-        R_Button = not readPin(self.PIN_R_BUTTON)
+        L_Button = not GPIO.input(self.PIN_L_BUTTON)
+        M_Button = not GPIO.input(self.PIN_M_BUTTON)
+        R_Button = not GPIO.input(self.PIN_R_BUTTON)
         logging.debug("Button state L:%s M:%s R:%s",
                       L_Button, M_Button, R_Button)
         return L_Button, M_Button, R_Button
@@ -347,20 +317,19 @@ class q3y2018HAT(OledHAT):
 class q4y2018HAT(OledHAT):
 
     # Q4Y2018 - AXP209/OLED (Anker) Unit run specific pins
-    PIN_L_BUTTON = 198  # PG6 left button
-    PIN_R_BUTTON = 199  # PG7 middle button
+    # Pin numbers from https://github.com/auto3000/RPi.GPIO_NP
+    PIN_L_BUTTON = PG6 = 8
+    PIN_R_BUTTON = PG7 = 10
 
     def __init__(self):
-        self. pins_to_initialise = [
-            (self.PIN_LED, "out"),
-            (self.PIN_L_BUTTON, "in"),
-            (self.PIN_R_BUTTON, "in")
-        ]
+        GPIO.setup(self.PIN_LED, GPIO.OUT)
+        GPIO.setup(self.PIN_L_BUTTON, GPIO.IN)
+        GPIO.setup(self.PIN_R_BUTTON, GPIO.IN)
         super().__init__()
 
     def CheckButtonState(self):
-        L_Button = not readPin(self.PIN_L_BUTTON)
-        R_Button = not readPin(self.PIN_R_BUTTON)
+        L_Button = not GPIO.input(self.PIN_L_BUTTON)
+        R_Button = not GPIO.input(self.PIN_R_BUTTON)
         logging.debug("Button state L:%s R:%s",
                       L_Button, R_Button)
         return L_Button, R_Button

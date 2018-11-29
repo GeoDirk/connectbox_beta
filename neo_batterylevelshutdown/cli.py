@@ -6,35 +6,25 @@ import logging
 
 import axp209
 import click
+import RPi.GPIO as GPIO
 
 import neo_batterylevelshutdown.hats as hats
-from .HAT_Utilities import setup_gpio_pin, readPin
-
-PIN_LED = 6  # PA6 pin
-PIN_PA1 = 1
-
-
-def neoHatIsPresent():
-    """
-    As PA6 is set to be a pulldown resistor on system startup by the
-    pa6-pulldown.service, and the HAT sets PA6 HIGH, so we check the
-    value of PA6, knowing non-HAT NEOs will read LOW.
-
-    We assume the HAT is not present if we're unable to setup the pin
-    or read from it. That's the safe option and means that we won't
-    immediately shutdown devices that don't have a HAT if we've incorrect
-    detected the presence of a HAT
-    """
-    return setup_gpio_pin(PIN_LED, "in") and readPin(PIN_LED) is True
 
 
 def getHATVersion():
-    if not neoHatIsPresent():
+    GPIO.setup(hats.AbstractHAT.PA6, GPIO.IN)
+    # As PA6 is set to be a pulldown resistor on system startup by the
+    #  pa6-pulldown.service, and the HAT sets PA6 HIGH, so we check the
+    #  value of PA6, knowing non-HAT NEOs will read LOW.
+    #
+    # We assume the HAT is not present if we're unable to setup the pin
+    #  or read from it. That's the safe option and means that we won't
+    #  immediately shutdown devices that don't have a HAT if we've incorrect
+    #  detected the presence of a HAT
+    # XXX - we don't fail anymore if we're unable to setup the pin... check
+    #  behaviour on hatless devices
+    if GPIO.input(hats.AbstractHAT.PA6) == GPIO.LOW:
         logging.info("NEO HAT not detected")
-        return hats.DummyHAT
-
-    if not setup_gpio_pin(PIN_PA1, "in"):
-        logging.info("NEO HAT not detected based on failed PA1 setup")
         return hats.DummyHAT
 
     try:
@@ -42,7 +32,8 @@ def getHATVersion():
         axp.close()
         # AXP209 found... we have HAT from Q3Y2018 or later
         # Test PA1... LOW => Q4Y2018; HIGH => Q3Y2018
-        if readPin(PIN_PA1) is False:
+        GPIO.setup(hats.q3y2018HAT.PA1, GPIO.IN)
+        if GPIO.input(hats.q3y2018HAT.PA1) == GPIO.LOW:
             logging.info("Q4Y2018 HAT Detected")
             return hats.q4y2018HAT
         else:
@@ -66,6 +57,7 @@ def main(verbose):
     else:
         logging.basicConfig(level=logging.INFO)
 
+    GPIO.setmode(GPIO.BOARD)
     hat = getHATVersion()
     logging.info("starting main loop")
     hat().mainLoop()

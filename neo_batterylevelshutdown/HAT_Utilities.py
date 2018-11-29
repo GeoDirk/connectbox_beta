@@ -9,62 +9,20 @@
 ===========================================
 """
 import logging
-import os
 import time
-import os.path
 from luma.core import cmdline, error
+import RPi.GPIO as GPIO
 
 LED_FLASH_DELAY_SEC = 0.1
-GPIO_EXPORT_FILE = "/sys/class/gpio/export"
-
-PIN_HIGH = "1"
-PIN_LOW = "0"
-PIN_LED = 6  # PA6 pin
-
-
-def setup_gpio_pin(pinNum, direction):
-    """Setup the GPIO Pin for operation in the system OS"""
-    if not os.path.isfile(GPIO_EXPORT_FILE):
-        logging.error("Unable to find GPIO export file: %s "
-                      "Is GPIO_SYSFS active?", GPIO_EXPORT_FILE)
-        return False
-
-    # Has this pin been exported?
-    pinPath = "/sys/class/gpio/gpio{}".format(pinNum)
-    try:
-        if not os.path.exists(pinPath):
-            # Export pin for access - once we have HATs for wider testing
-            #  turn this echo into the regular python open and write pattern
-            os.system("echo {} > /sys/class/gpio/export".format(pinNum))
-            logging.info("Completed export of GPIO pin %s", pinNum)
-
-        # Configure the pin direction
-        with open(os.path.join(pinPath, "direction"), 'w') as f:
-            f.write(direction)
-        logging.info("Completed setting direction GPIO pin %s to %s",
-                     pinNum, direction)
-    except OSError:
-        logging.error("Error setting up GPIO pin %s", pinNum)
-        return False
-
-    return True
 
 
 def blink_LEDxTimes(pinNum, times):
     """Blink the LED a certain number of times"""
-    pinFile = "/sys/class/gpio/gpio{}/value".format(pinNum)
-    try:
-        for _ in range(0, times):
-            with open(pinFile, "w") as pin:
-                pin.write(PIN_HIGH)
-            time.sleep(LED_FLASH_DELAY_SEC)
-            with open(pinFile, "w") as pin:
-                pin.write(PIN_LOW)
-            time.sleep(LED_FLASH_DELAY_SEC)
-    except OSError:
-        logging.warn("Error writing to pin %s", pinNum)
-        return False
-    return True
+    for _ in range(0, times):
+        GPIO.output(pinNum, GPIO.HIGH)
+        time.sleep(LED_FLASH_DELAY_SEC)
+        GPIO.output(pinNum, GPIO.LOW)
+        time.sleep(LED_FLASH_DELAY_SEC)
 
 
 def GetReleaseVersion():
@@ -75,29 +33,6 @@ def GetReleaseVersion():
     except OSError:
         logging.warn("Error reading release version")
     return "unknown"
-
-
-def readPin(pinNum):
-    """Read the value from some input pin"""
-    logging.debug("Reading pin %s", pinNum)
-    try:
-        with open("/sys/class/gpio/gpio{}/value".format(pinNum), 'r') as pin:
-            return str(pin.read(1)) == "1"
-    except OSError:
-        logging.warn("Error reading from pin %s", pinNum)
-    return -1
-
-
-def writePin(pinNum, value):
-    try:
-        with open("/sys/class/gpio/gpio{}/value".format(PIN_LED),
-                  "w") as pin:
-            pin.write(PIN_LOW)
-    except OSError:
-        logging.warn("Error writing to pin %s", PIN_LED)
-        return False
-
-    return True
 
 
 def get_device(actual_args=None):
