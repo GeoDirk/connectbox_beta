@@ -206,6 +206,57 @@ class OledHAT(AbstractHAT):
     def BatteryPresent(self):
         return self.axp.battery_exists
 
+    def moveForward(self, channel):
+        """callback for use on button press"""
+        with self.curPageLock:
+            logging.debug("Processing press on GPIO %s. Current page is %s",
+                          channel, self.curPage)
+            if self.curPage not in self.pages:
+                # Always start with the starting page if the screen went off
+                #  or if we were showing the low battery page
+                self.curPage = self.pages[self.STARTING_PAGE_INDEX]
+            else:
+                # move forward in the page list
+                # If we're at the end of the page list, go to the start
+                if self.curPage == self.pages[-1]:
+                    self.curPage = self.pages[0]
+                else:
+                    self.curPage = \
+                        self.pages[self.pages.index(self.curPage) + 1]
+
+            # draw the page while holding the lock, so that it doesn't change
+            #  underneath us
+            self.curPage.draw_page()
+            logging.debug("Transitioned to page %s", self.curPage)
+
+        # reset the display power off time
+        self.displayPowerOffTime = time.time() + self.DISPLAY_TIMEOUT_SECS
+
+    def moveBackward(self, channel):
+        """callback for use on button press"""
+        with self.curPageLock:
+            logging.debug("Processing press on GPIO %s. Current page is %s",
+                          channel, self.curPage)
+            if self.curPage not in self.pages:
+                # Always start with the starting page if the screen went off
+                #  or if we were showing the low battery page
+                self.curPage = self.pages[self.STARTING_PAGE_INDEX]
+            else:
+                # move backwards in the page list
+                # If we're at the start of the page list, go to the start
+                if self.curPage == self.pages[0]:
+                    self.curPage = self.pages[-1]
+                else:
+                    self.curPage = self.pages[self.pages.index(self.curPage) - 1]
+
+            # draw the page while holding the lock, so that it doesn't change
+            #  underneath us
+            self.curPage.draw_page()
+            logging.debug("Transitioned to page %s", self.curPage)
+
+        # reset the display power off time
+        self.displayPowerOffTime = time.time() + self.DISPLAY_TIMEOUT_SECS
+
     def mainLoop(self):
         # draw the connectbox logo
         self.draw_logo()
@@ -288,55 +339,6 @@ class q3y2018HAT(OledHAT):
                               bouncetime=250)
         super().__init__()
 
-    def moveForward(self, channel):
-        with self.curPageLock:
-            logging.debug("Processing press on GPIO %s. Current page is %s",
-                          channel, self.curPage)
-            if self.curPage not in self.pages:
-                # Always start with the starting page if the screen went off
-                #  or if we were showing the low battery page
-                self.curPage = self.pages[self.STARTING_PAGE_INDEX]
-            else:
-                # move forward in the page list
-                # If we're at the end of the page list, go to the start
-                if self.curPage == self.pages[-1]:
-                    self.curPage = self.pages[0]
-                else:
-                    self.curPage = \
-                        self.pages[self.pages.index(self.curPage) + 1]
-
-            # draw the page while holding the lock, so that it doesn't change
-            #  underneath us
-            self.curPage.draw_page()
-            logging.debug("Transitioned to page %s", self.curPage)
-
-        # reset the display power off time
-        self.displayPowerOffTime = time.time() + self.DISPLAY_TIMEOUT_SECS
-
-    def moveBackward(self, channel):
-        with self.curPageLock:
-            logging.debug("Processing press on GPIO %s. Current page is %s",
-                          channel, self.curPage)
-            if self.curPage not in self.pages:
-                # Always start with the starting page if the screen went off
-                #  or if we were showing the low battery page
-                self.curPage = self.pages[self.STARTING_PAGE_INDEX]
-            else:
-                # move backwards in the page list
-                # If we're at the start of the page list, go to the start
-                if self.curPage == self.pages[0]:
-                    self.curPage = self.pages[-1]
-                else:
-                    self.curPage = self.pages[self.pages.index(self.curPage) - 1]
-
-            # draw the page while holding the lock, so that it doesn't change
-            #  underneath us
-            self.curPage.draw_page()
-            logging.debug("Transitioned to page %s", self.curPage)
-
-        # reset the display power off time
-        self.displayPowerOffTime = time.time() + self.DISPLAY_TIMEOUT_SECS
-
     def powerOffDisplay(self, channel):
         """Turn off the display"""
         with self.curPageLock:
@@ -361,39 +363,10 @@ class q4y2018HAT(OledHAT):
         GPIO.setup(self.PIN_LED, GPIO.OUT)
         GPIO.setup(self.PIN_L_BUTTON, GPIO.IN)
         GPIO.setup(self.PIN_R_BUTTON, GPIO.IN)
+        GPIO.add_event_detect(self.PIN_L_BUTTON, GPIO.FALLING,
+                              callback=self.moveForward,
+                              bouncetime=250)
+        GPIO.add_event_detect(self.PIN_R_BUTTON, GPIO.FALLING,
+                              callback=self.moveBackward,
+                              bouncetime=250)
         super().__init__()
-
-    def CheckButtonState(self):
-        L_Button = not GPIO.input(self.PIN_L_BUTTON)
-        R_Button = not GPIO.input(self.PIN_R_BUTTON)
-        logging.debug("Button state L:%s R:%s",
-                      L_Button, R_Button)
-        return L_Button, R_Button
-
-    def ProcessButtons(self, L_Button, R_Button):
-        '''
-        L botton is go forward button
-        R button is go back button
-        '''
-        logging.debug("Processing buttons. Current page is %s", self.curPage)
-        if self.curPage not in self.pages:
-            # Always start with the starting page if the screen went off
-            #  or if we were showing the low battery page
-            self.curPage = self.pages[self.STARTING_PAGE_INDEX]
-
-        if L_Button:
-            # move forward in the page stack
-            # If we're at the end of the page list. Go to the start
-            if self.curPage == self.pages[-1]:
-                self.curPage = self.pages[0]
-            else:
-                self.curPage = self.pages[self.pages.index(self.curPage) + 1]
-        elif R_Button:
-            # move backward in the page stack
-            if self.curPage == self.pages[0]:
-                self.curPage = self.pages[-1]
-            else:
-                self.curPage = self.pages[self.pages.index(self.curPage) - 1]
-
-        logging.debug("Transitioning to page %s", self.curPage)
-        # Page is actually drawn in the calling function
