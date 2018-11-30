@@ -5,6 +5,7 @@ import logging
 import os
 import os.path
 import time
+import threading
 import axp209
 from .HAT_Utilities import get_device
 from .HAT_Utilities import blink_LEDxTimes
@@ -170,7 +171,19 @@ class OledHAT(AbstractHAT):
             page_stats.PageStats(self.display_device, 'month', 1),
             page_stats.PageStats(self.display_device, 'month', 2),
         ]
-        self.curPage = self.blank_page
+        # callbacks run in another thread, so we need to lock access to the
+        #  current page variable as it can be modified from the main loop
+        #  and from callbacks
+        self.curPageLock = threading.Lock()
+        # This is set in the start of the main loop anyway, but let's make
+        #  sure it's defined for clarity's sake in the constructor
+        self.curPage = self.STARTING_PAGE_INDEX
+        # set an OLED display timeout.
+        # While this is read and written from both callback threads and the
+        #  main loop, there's no TOCTOU race condition because we're only
+        #  ever setting an absolute value rather than incrementing i.e.
+        #  we're not referencing the old value
+        self.displayPowerOffTime = time.time() + self.DISPLAY_TIMEOUT_SECS
         super().__init__()
 
     def draw_logo(self):
@@ -200,31 +213,20 @@ class OledHAT(AbstractHAT):
 
         # no shutdown currently scheduled
         scheduledShutdownTime = 0
-        # set an OLED display timeout
-        displayPowerOffTime = time.time() + self.DISPLAY_TIMEOUT_SECS
         nextBatteryCheckTime = time.time() + self.BATTERY_CHECK_FREQUENCY_SECS
 
         # blank the screen given we've shown the logo for long enough
-        self.curPage = self.blank_page
-        self.curPage.draw_page()
+        with self.curPageLock:
+            self.curPage = self.blank_page
+            self.curPage.draw_page()
         # loop through the buttons looking for changes
         # and check the battery state
         while True:
-            buttonState = self.CheckButtonState()
-            if sum(buttonState) > 0:
-                # at least one button was pressed
-                self.ProcessButtons(*buttonState)
-                self.curPage.draw_page()
-                # reset the display power off time
-                displayPowerOffTime = time.time() + self.DISPLAY_TIMEOUT_SECS
-
-            if time.time() > displayPowerOffTime:
+            if time.time() > self.displayPowerOffTime:
                 # Power off the display
                 if self.curPage != self.blank_page:
                     self.curPage = self.blank_page
                     self.curPage.draw_page()
-
-            time.sleep(0.4)
 
             if time.time() > nextBatteryCheckTime and self.BatteryPresent():
                 if self.batteryLevelAbovePercent(
@@ -234,8 +236,9 @@ class OledHAT(AbstractHAT):
                     #  the display to hide the low battery warning
                     if scheduledShutdownTime:
                         scheduledShutdownTime = 0
-                        self.curPage = self.blank_page
-                        self.curPage.draw_page()
+                        with self.curPageLock:
+                            self.curPage = self.blank_page
+                            self.curPage.draw_page()
                 else:
                     logging.debug("Battery below warning level")
                     # Schedule a shutdown time if we don't already have one
@@ -244,9 +247,10 @@ class OledHAT(AbstractHAT):
                             time.time() + self.SHUTDOWN_WARNING_PERIOD_SECS
                         # Don't blank the display while we're in the warning
                         #  period so the low battery warning shows to the end
-                        displayPowerOffTime = scheduledShutdownTime + 1
-                        self.curPage = self.low_battery_page
-                        self.curPage.draw_page()
+                        self.displayPowerOffTime = scheduledShutdownTime + 1
+                        with self.curPageLock:
+                            self.curPage = self.low_battery_page
+                            self.curPage.draw_page()
 
                 nextBatteryCheckTime = \
                     time.time() + self.BATTERY_CHECK_FREQUENCY_SECS
@@ -254,6 +258,9 @@ class OledHAT(AbstractHAT):
             if scheduledShutdownTime and time.time() > scheduledShutdownTime:
                 self.blank_page.draw_page()
                 self.shutdownDevice()
+
+            # Wait before next loop iteration
+            time.sleep(1)
 
         return
 
@@ -270,47 +277,77 @@ class q3y2018HAT(OledHAT):
         GPIO.setup(self.PIN_L_BUTTON, GPIO.IN)
         GPIO.setup(self.PIN_M_BUTTON, GPIO.IN)
         GPIO.setup(self.PIN_R_BUTTON, GPIO.IN)
+        GPIO.add_event_detect(self.PIN_L_BUTTON, GPIO.FALLING,
+                              callback=self.moveForward,
+                              bouncetime=250)
+        GPIO.add_event_detect(self.PIN_M_BUTTON, GPIO.FALLING,
+                              callback=self.moveBackward,
+                              bouncetime=250)
+        GPIO.add_event_detect(self.PIN_R_BUTTON, GPIO.FALLING,
+                              callback=self.powerOffDisplay,
+                              bouncetime=250)
         super().__init__()
 
-    def CheckButtonState(self):
-        L_Button = not GPIO.input(self.PIN_L_BUTTON)
-        M_Button = not GPIO.input(self.PIN_M_BUTTON)
-        R_Button = not GPIO.input(self.PIN_R_BUTTON)
-        logging.debug("Button state L:%s M:%s R:%s",
-                      L_Button, M_Button, R_Button)
-        return L_Button, M_Button, R_Button
-
-    def ProcessButtons(self, L_Button, M_Button, R_Button):
-        '''
-        L botton is go back button
-        M button is go forward button
-        R button turns off display
-        '''
-        logging.debug("Processing buttons. Current page is %s", self.curPage)
-        if self.curPage not in self.pages:
-            # Always start with the starting page if the screen went off
-            #  or if we were showing the low battery page
-            self.curPage = self.pages[self.STARTING_PAGE_INDEX]
-
-        if L_Button:
-            # move forward in the page stack
-            # If we're at the end of the page list. Go to the start
-            if self.curPage == self.pages[-1]:
-                self.curPage = self.pages[0]
+    def moveForward(self, channel):
+        with self.curPageLock:
+            logging.debug("Processing press on GPIO %s. Current page is %s",
+                          channel, self.curPage)
+            if self.curPage not in self.pages:
+                # Always start with the starting page if the screen went off
+                #  or if we were showing the low battery page
+                self.curPage = self.pages[self.STARTING_PAGE_INDEX]
             else:
-                self.curPage = self.pages[self.pages.index(self.curPage) + 1]
-        elif M_Button:
-            # move backward in the page stack
-            if self.curPage == self.pages[0]:
-                self.curPage = self.pages[-1]
+                # move forward in the page list
+                # If we're at the end of the page list, go to the start
+                if self.curPage == self.pages[-1]:
+                    self.curPage = self.pages[0]
+                else:
+                    self.curPage = \
+                        self.pages[self.pages.index(self.curPage) + 1]
+
+            # draw the page while holding the lock, so that it doesn't change
+            #  underneath us
+            self.curPage.draw_page()
+            logging.debug("Transitioned to page %s", self.curPage)
+
+        # reset the display power off time
+        self.displayPowerOffTime = time.time() + self.DISPLAY_TIMEOUT_SECS
+
+    def moveBackward(self, channel):
+        with self.curPageLock:
+            logging.debug("Processing press on GPIO %s. Current page is %s",
+                          channel, self.curPage)
+            if self.curPage not in self.pages:
+                # Always start with the starting page if the screen went off
+                #  or if we were showing the low battery page
+                self.curPage = self.pages[self.STARTING_PAGE_INDEX]
             else:
-                self.curPage = self.pages[self.pages.index(self.curPage) - 1]
-        elif R_Button:
-            # Right button - turn on/off display
+                # move backwards in the page list
+                # If we're at the start of the page list, go to the start
+                if self.curPage == self.pages[0]:
+                    self.curPage = self.pages[-1]
+                else:
+                    self.curPage = self.pages[self.pages.index(self.curPage) - 1]
+
+            # draw the page while holding the lock, so that it doesn't change
+            #  underneath us
+            self.curPage.draw_page()
+            logging.debug("Transitioned to page %s", self.curPage)
+
+        # reset the display power off time
+        self.displayPowerOffTime = time.time() + self.DISPLAY_TIMEOUT_SECS
+
+    def powerOffDisplay(self, channel):
+        """Turn off the display"""
+        with self.curPageLock:
+            logging.debug("Processing press on GPIO %s. Current page is %s",
+                          channel, self.curPage)
             self.curPage = self.blank_page
-
-        logging.debug("Transitioning to page %s", self.curPage)
-        # Page is actually drawn in the calling function
+            # draw the page while holding the lock, so that it doesn't change
+            #  underneath us
+            self.curPage.draw_page()
+            logging.debug("Transitioned to page %s", self.curPage)
+        # The display is already off... no need to set the power off time
 
 
 class q4y2018HAT(OledHAT):
