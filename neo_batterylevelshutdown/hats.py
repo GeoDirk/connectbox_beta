@@ -330,13 +330,13 @@ class q3y2018HAT(OledHAT):
         GPIO.setup(self.PIN_R_BUTTON, GPIO.IN)
         GPIO.add_event_detect(self.PIN_L_BUTTON, GPIO.FALLING,
                               callback=self.moveForward,
-                              bouncetime=250)
+                              bouncetime=125)
         GPIO.add_event_detect(self.PIN_M_BUTTON, GPIO.FALLING,
                               callback=self.moveBackward,
-                              bouncetime=250)
+                              bouncetime=125)
         GPIO.add_event_detect(self.PIN_R_BUTTON, GPIO.FALLING,
                               callback=self.powerOffDisplay,
-                              bouncetime=250)
+                              bouncetime=125)
         super().__init__()
 
     def powerOffDisplay(self, channel):
@@ -365,8 +365,8 @@ class q4y2018HAT(OledHAT):
         GPIO.setup(self.PIN_R_BUTTON, GPIO.IN)
         GPIO.add_event_detect(self.PIN_L_BUTTON, GPIO.FALLING,
                               callback=self.moveForward,
-                              bouncetime=250)
+                              bouncetime=125)
         GPIO.add_event_detect(self.PIN_R_BUTTON, GPIO.FALLING,
                               callback=self.moveBackward,
-                              bouncetime=250)
+                              bouncetime=125)
         super().__init__()
