@@ -29,20 +29,18 @@ def getHATVersion():
         axp = axp209.AXP209()
         axp.close()
         # AXP209 found... we have HAT from Q3Y2018 or later
+        try:
+            # See if we can find an OLED
+            get_device()
+        except OSError:
+            # No OLED. This is a standard Axp209 HAT
+            logging.info("OLED-less Axp209 HAT Detected")
+            return hats.Axp209HAT
         # Test PA1... LOW => Q4Y2018; HIGH => Q3Y2018
         GPIO.setup(hats.q3y2018HAT.PA1, GPIO.IN)
         if GPIO.input(hats.q3y2018HAT.PA1) == GPIO.LOW:
-            try:
-                # See if we can find an OLED
-                get_device()
-                logging.info("Q4Y2018 HAT Detected")
-                return hats.q4y2018HAT
-            except OSError:
-                # No OLED. This is a standard Axp209 HAT
-                # We only offered OLED-less AXP209 HATs based on
-                #  the q4y2018 HAT, so path is valid
-                logging.info("OLED-less Axp209 HAT Detected")
-                return hats.Axp209HAT
+            logging.info("Q4Y2018 HAT Detected")
+            return hats.q4y2018HAT
         else:
             logging.info("Q3Y2018 HAT Detected")
             return hats.q3y2018HAT
