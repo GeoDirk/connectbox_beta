@@ -12,9 +12,7 @@
 
 import sys
 import os.path
-from PIL import Image
-from PIL import ImageFont
-from PIL import ImageDraw
+from PIL import Image, ImageFont, ImageDraw
 
 from .HAT_Utilities import get_device
 
@@ -27,7 +25,7 @@ except ImportError:
     sys.exit()
 
 
-class PageMemory(object):
+class PageMemory:
     def __init__(self, device):
         self.device = device
 
@@ -54,8 +52,8 @@ class PageMemory(object):
         return psutil.virtual_memory()
 
     @staticmethod
-    def disk_usage(dir):
-        return psutil.disk_usage(dir)
+    def disk_usage(dir_name):
+        return psutil.disk_usage(dir_name)
 
     @staticmethod
     def cpu_usage():

@@ -6,18 +6,18 @@
   Version 1.0
   GeoDirk - May 2018
 ===========================================
+
+triggers the log refresh with:
+sudo logrotate /etc/logrotate.hourly.conf
 """
 
-import os.path
-from PIL import Image
-from PIL import ImageFont
-from PIL import ImageDraw
 import json
-
+import os.path
+from PIL import Image, ImageFont, ImageDraw
 from .HAT_Utilities import get_device
 
 
-class PageStats(object):
+class PageStats:
     def __init__(self, device, dt_range, page_num):
         self.device = device
         self.dt_range = dt_range
@@ -98,9 +98,9 @@ class PageStats(object):
                         # trim out directories
                         count += 1
                         if count > 5:
-                            d.text((2, y), '(%s) %s' % (
-                                str(p['count']), media),
-                                font=font10, fill="black")
+                            d.text((2, y), '(%s) %s' %
+                                   (str(p['count']), media),
+                                   font=font10, fill="black")
                             y += 12
 
         out = Image.alpha_composite(img, txt)
@@ -120,8 +120,3 @@ if __name__ == "__main__":
         # PageStats(get_device(), 'month', 2).draw_page()
     except KeyboardInterrupt:
         pass
-
-'''
-#triggers the log to refresh
-sudo logrotate /etc/logrotate.hourly.conf
-'''

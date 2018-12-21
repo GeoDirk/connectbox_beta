@@ -10,14 +10,11 @@
 ===========================================
 """
 
-import sys
-import os.path
-from PIL import Image
-from PIL import ImageFont
-from PIL import ImageDraw
 from datetime import datetime
+import os.path
 import subprocess
-
+import sys
+from PIL import Image, ImageFont, ImageDraw
 from .HAT_Utilities import get_device
 
 
@@ -29,7 +26,7 @@ except ImportError:
     sys.exit()
 
 
-class PageInfo(object):
+class PageInfo:
     def __init__(self, device):
         self.device = device
 

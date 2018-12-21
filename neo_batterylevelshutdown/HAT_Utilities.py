@@ -10,8 +10,8 @@
 """
 import logging
 import time
-from luma.core import cmdline, error
-import RPi.GPIO as GPIO
+from luma.core import cmdline, error  #pylint: disable=import-error
+import RPi.GPIO as GPIO  #pylint: disable=import-error
 
 LED_FLASH_DELAY_SEC = 0.1
 
@@ -31,7 +31,7 @@ def GetReleaseVersion():
         with open("/etc/connectbox-release", 'r') as release:
             return str(release.read())
     except OSError:
-        logging.warn("Error reading release version")
+        logging.warning("Error reading release version")
     return "unknown"
 
 

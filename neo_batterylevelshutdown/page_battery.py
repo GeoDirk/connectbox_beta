@@ -18,7 +18,7 @@ import axp209
 from .HAT_Utilities import get_device
 
 
-class PageBattery(object):
+class PageBattery:
     def __init__(self, device, axp):
         self.device = device
         self.axp = axp
@@ -78,10 +78,10 @@ class PageBattery(object):
         else:
             # get the percent filled and draw a rectangle
             percent = self.axp.battery_gauge
-            if percent > 0 and percent < 10:
+            if percent < 10:
                 d.rectangle((20, 5, 22, 12), fill="black")
                 d.text((15, 2), "!", font=font14, fill="black")
-            elif percent > 10:
+            else:
                 # start of battery level= 20px, end = 38px
                 x = int((38 - 20) * (percent / 100)) + 20
                 # print("X:" + str(x))

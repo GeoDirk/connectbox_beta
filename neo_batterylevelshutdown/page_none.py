@@ -13,7 +13,7 @@
 from .HAT_Utilities import get_device
 
 
-class PageBlank(object):
+class PageBlank:
     def __init__(self, device):
         self.device = device
 

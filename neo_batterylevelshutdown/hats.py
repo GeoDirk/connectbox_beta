@@ -7,9 +7,10 @@ import os.path
 import time
 import threading
 import axp209
+from PIL import Image
+import RPi.GPIO as GPIO  #pylint: disable=import-error
 from .HAT_Utilities import get_device
 from .HAT_Utilities import blink_LEDxTimes
-from PIL import Image
 from . import page_none
 from . import page_main
 from . import page_battery
@@ -17,7 +18,6 @@ from . import page_info
 from . import page_stats
 from . import page_memory
 from . import page_battery_low
-import RPi.GPIO as GPIO
 
 
 @contextmanager
@@ -37,14 +37,15 @@ def min_execution_time(min_time_secs):
     time.sleep(period)
 
 
-class AbstractHAT(object):
+class AbstractHAT:
 
     PIN_LED = PA6 = 12
 
     def __init__(self):
         pass
 
-    def shutdownDevice(self):
+    @classmethod
+    def shutdownDevice(cls):
         logging.info("Exiting for Shutdown")
         os.system("shutdown now")
 
@@ -52,6 +53,8 @@ class AbstractHAT(object):
 class DummyHAT(AbstractHAT):
     pins_to_initialise = []
 
+    # pylint: disable=no-self-use
+    # This is a standard interface - it's ok not to use self for a dummy impl
     def mainLoop(self):
         logging.info("There is no HAT, so there's nothing to do")
 
@@ -124,7 +127,7 @@ class q1y2018HAT(AbstractHAT):
                     if lv_iterations_remaining == 0:
                         logging.warning("Exiting main loop for shutdown")
                         # Time to shutdown
-                        self.shutdownDevice()
+                        AbstractHAT.shutdownDevice()
                     else:
                         logging.info("Low voltage. %s loop(s) remaining",
                                      lv_iterations_remaining)
@@ -139,19 +142,72 @@ class q1y2018HAT(AbstractHAT):
                 #  if we're here, then we're about to get the power yanked
                 #  anyway so attempt a graceful shutdown immediately.
                 logging.warning("Immediately exiting main loop for shutdown")
-                self.shutdownDevice()
+                AbstractHAT.shutdownDevice()
 
 
-class OledHAT(AbstractHAT):
-
+class Axp209HAT(AbstractHAT):
     SHUTDOWN_WARNING_PERIOD_SECS = 60
     BATTERY_CHECK_FREQUENCY_SECS = 30
     BATTERY_SHUTDOWN_THRESHOLD_PERC = 4
+
+    def __init__(self):
+        self.axp = axp209.AXP209()
+        # no shutdown currently scheduled
+        self.scheduledShutdownTime = 0
+        # schedule battery check immediately
+        self.nextBatteryCheckTime = 0
+
+        super().__init__()
+
+    def batteryLevelAbovePercent(self, level):
+        logging.debug("Battery Level: %s%%", self.axp.battery_gauge)
+        return self.axp.battery_gauge > level
+
+    def BatteryPresent(self):
+        return self.axp.battery_exists
+
+    def mainLoop(self):
+        # We only do battery checking... without a battery we can just exit
+        if not self.BatteryPresent():
+            return
+
+        while True:
+            if time.time() > self.nextBatteryCheckTime:
+                if self.batteryLevelAbovePercent(
+                        self.BATTERY_SHUTDOWN_THRESHOLD_PERC):
+                    logging.debug("Battery above warning level")
+                    # If we have a pending shutdown, cancel it
+                    if self.scheduledShutdownTime:
+                        self.scheduledShutdownTime = 0
+                else:
+                    logging.debug("Battery below warning level")
+                    # Schedule a shutdown time if we don't already have one
+                    if not self.scheduledShutdownTime:
+                        self.scheduledShutdownTime = \
+                            time.time() + self.SHUTDOWN_WARNING_PERIOD_SECS
+
+                self.nextBatteryCheckTime = \
+                    time.time() + self.BATTERY_CHECK_FREQUENCY_SECS
+
+            if self.scheduledShutdownTime and \
+                    time.time() > self.scheduledShutdownTime:
+                AbstractHAT.shutdownDevice()
+
+            # Wait before next loop iteration
+            time.sleep(1)
+
+        return
+
+
+class OledHAT(Axp209HAT):
+
     DISPLAY_TIMEOUT_SECS = 20
     # What to show after startup and blank screen
     STARTING_PAGE_INDEX = 0  # the main page
 
     def __init__(self):
+        # Can't delegate the axp209 setup to the parent constructor because
+        #  we need it now.
         self.axp = axp209.AXP209()
         self.display_device = get_device()
         self.blank_page = page_none.PageBlank(self.display_device)
@@ -198,13 +254,6 @@ class OledHAT(AbstractHAT):
         self.display_device.display(
             background.convert(self.display_device.mode)
         )
-
-    def batteryLevelAbovePercent(self, level):
-        logging.debug("Battery Level: " + str(self.axp.battery_gauge) + "%")
-        return self.axp.battery_gauge > level
-
-    def BatteryPresent(self):
-        return self.axp.battery_exists
 
     def moveForward(self, channel):
         """callback for use on button press"""
@@ -262,10 +311,6 @@ class OledHAT(AbstractHAT):
         self.draw_logo()
         time.sleep(3)
 
-        # no shutdown currently scheduled
-        scheduledShutdownTime = 0
-        nextBatteryCheckTime = time.time() + self.BATTERY_CHECK_FREQUENCY_SECS
-
         # blank the screen given we've shown the logo for long enough
         with self.curPageLock:
             self.curPage = self.blank_page
@@ -279,41 +324,39 @@ class OledHAT(AbstractHAT):
                     self.curPage = self.blank_page
                     self.curPage.draw_page()
 
-            if time.time() > nextBatteryCheckTime and self.BatteryPresent():
+            if time.time() > self.nextBatteryCheckTime and self.BatteryPresent():
                 if self.batteryLevelAbovePercent(
                         self.BATTERY_SHUTDOWN_THRESHOLD_PERC):
                     logging.debug("Battery above warning level")
                     # If we have a pending shutdown, cancel it and blank
                     #  the display to hide the low battery warning
-                    if scheduledShutdownTime:
-                        scheduledShutdownTime = 0
+                    if self.scheduledShutdownTime:
+                        self.scheduledShutdownTime = 0
                         with self.curPageLock:
                             self.curPage = self.blank_page
                             self.curPage.draw_page()
                 else:
                     logging.debug("Battery below warning level")
                     # Schedule a shutdown time if we don't already have one
-                    if not scheduledShutdownTime:
-                        scheduledShutdownTime = \
+                    if not self.scheduledShutdownTime:
+                        self.scheduledShutdownTime = \
                             time.time() + self.SHUTDOWN_WARNING_PERIOD_SECS
                         # Don't blank the display while we're in the warning
                         #  period so the low battery warning shows to the end
-                        self.displayPowerOffTime = scheduledShutdownTime + 1
+                        self.displayPowerOffTime = self.scheduledShutdownTime + 1
                         with self.curPageLock:
                             self.curPage = self.low_battery_page
                             self.curPage.draw_page()
 
-                nextBatteryCheckTime = \
+                self.nextBatteryCheckTime = \
                     time.time() + self.BATTERY_CHECK_FREQUENCY_SECS
 
-            if scheduledShutdownTime and time.time() > scheduledShutdownTime:
-                self.blank_page.draw_page()
-                self.shutdownDevice()
+            if self.scheduledShutdownTime and \
+                    time.time() > self.scheduledShutdownTime:
+                AbstractHAT.shutdownDevice()
 
             # Wait before next loop iteration
             time.sleep(1)
-
-        return
 
 
 class q3y2018HAT(OledHAT):

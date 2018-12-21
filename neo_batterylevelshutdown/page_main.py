@@ -11,16 +11,13 @@
 """
 
 import os.path
-from PIL import Image
-from PIL import ImageFont
-from PIL import ImageDraw
 import subprocess
-
+from PIL import Image, ImageFont, ImageDraw
 import axp209
 from .HAT_Utilities import get_device, GetReleaseVersion
 
 
-class PageMain(object):
+class PageMain:
     def __init__(self, device, axp):
         self.device = device
         self.axp = axp
@@ -79,13 +76,12 @@ class PageMain(object):
             d.line((37, 58, 57, 51), fill="black", width=2)
         else:
             # get the percent filled and draw a rectangle
-            percent = self.axp.battery_gauge
-            if percent > 0 and percent < 10:
+            if self.axp.battery_gauge > 10:
                 d.rectangle((37, 51, 39, 58), fill="black")
                 d.text((43, 51), "!", font=font14, fill="black")
-            elif percent > 10:
+            else:
                 # start of battery level= 37px, end = 57px
-                x = int((57 - 37) * (percent / 100)) + 37
+                x = int((57 - 37) * (self.axp.battery_gauge / 100)) + 37
                 d.rectangle((37, 51, x, 58), fill="black")
 
         # percent charge left

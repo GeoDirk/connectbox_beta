@@ -15,7 +15,7 @@ from PIL import Image
 from .HAT_Utilities import get_device
 
 
-class PageBatteryLow(object):
+class PageBatteryLow:
     def __init__(self, device):
         self.device = device
 
