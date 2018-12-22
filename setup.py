@@ -16,7 +16,7 @@ requirements = [
     'smbus2==0.2.0',
     'axp209==0.0.2',
     'psutil==5.4.5',
-    'pillow==5.3.0',
+    'pillow==5.1.0',
     'luma.core==1.7.2',
     'luma.oled==2.4.1',
     'RPi.GPIO @ https://github.com/auto3000/RPi.GPIO_NP/archive/master.zip'
