@@ -156,7 +156,6 @@ class Axp209HAT(AbstractHAT):
         self.scheduledShutdownTime = 0
         # schedule battery check immediately
         self.nextBatteryCheckTime = 0
-
         super().__init__()
 
     def batteryLevelAbovePercent(self, level):
@@ -401,11 +400,13 @@ class q4y2018HAT(OledHAT):
     # Pin numbers from https://github.com/auto3000/RPi.GPIO_NP
     PIN_L_BUTTON = PG6 = 8
     PIN_R_BUTTON = PG7 = 10
+    PIN_AXP_INTERRUPT_LINE = PG8 = 16
 
     def __init__(self):
         GPIO.setup(self.PIN_LED, GPIO.OUT)
         GPIO.setup(self.PIN_L_BUTTON, GPIO.IN)
         GPIO.setup(self.PIN_R_BUTTON, GPIO.IN)
+        GPIO.setup(self.PIN_AXP_INTERRUPT_LINE, GPIO.IN)
         GPIO.add_event_detect(self.PIN_L_BUTTON, GPIO.FALLING,
                               callback=self.moveForward,
                               bouncetime=125)
@@ -413,3 +414,35 @@ class q4y2018HAT(OledHAT):
                               callback=self.moveBackward,
                               bouncetime=125)
         super().__init__()
+
+        # clear all interrupt enables
+        for hexreg in range(0x40, 0x45):
+            hexval = self.axp.bus.read_byte_data(axp209.AXP209_ADDRESS, hexreg)
+            logging.debug(
+                "Value at %s = %s. Rewriting it to clear interrupt enables",
+                format(hexreg, "#02X"),
+                format(hexval, "#02X")
+            )
+            self.axp.bus.write_byte_data(axp209.AXP209_ADDRESS, hexreg, 0x00)
+
+        # enable interrupts for Battery below LEVEL2 and N_OE low
+        self.axp.bus.write_byte_data(axp209.AXP209_ADDRESS, 0x43, 0x41)
+
+        # change power down timeout to 3 seconds
+        hexval = self.axp.bus.read_byte_data(axp209.AXP209_ADDRESS, 0x32)
+        hexval = hexval | 0x03
+        self.axp.bus.write_byte_data(axp209.AXP209_ADDRESS, 0x32, hexval)
+
+        # clear all previous interrupts by rewriting current value back to register
+        for hexreg in range(0x48, 0x4d):
+            hexval = self.axp.bus.read_byte_data(axp209.AXP209_ADDRESS, hexreg)
+            self.axp.bus.write_byte_data(axp209.AXP209_ADDRESS, hexreg, hexval)
+        logging.debug("IRQ records cleared")
+
+        GPIO.add_event_detect(self.PIN_AXP_INTERRUPT_LINE, GPIO.FALLING,
+                              callback=self.doFakeShutdown)
+
+    def doFakeShutdown(self, channel):
+        logging.info("Processing falling edge on GPIO %s. "
+                     "We'd shutdown here for real once testing is done",
+                     channel)
