@@ -457,10 +457,7 @@ class q4y2018HAT(OledHAT):
         logging.debug("IRQ records cleared")
 
     def handleAXPInterrupt(self, channel):
-        logging.info("Processing falling edge on GPIO %s.", channel)
-        # Clear interrupts during development (to come out before final
-        #  release) so we can time the shutdown
-        self.clearAllPreviousInterrupts()
+        logging.debug("Processing falling edge on GPIO %s.", channel)
         # We've masked all other interrupt sources, so the desired action
         #  here is always to shutdown
         self.shutdownDevice()
