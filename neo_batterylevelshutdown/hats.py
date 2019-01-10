@@ -6,7 +6,7 @@ import os
 import os.path
 import time
 import threading
-import axp209
+from axp209 import AXP209, AXP209_ADDRESS
 from PIL import Image
 import RPi.GPIO as GPIO  #pylint: disable=import-error
 from .HAT_Utilities import get_device
@@ -151,7 +151,7 @@ class Axp209HAT(AbstractHAT):
     BATTERY_SHUTDOWN_THRESHOLD_PERC = 4
 
     def __init__(self):
-        self.axp = axp209.AXP209()
+        self.axp = AXP209()
         # no shutdown currently scheduled
         self.scheduledShutdownTime = 0
         # schedule battery check immediately
@@ -207,7 +207,7 @@ class OledHAT(Axp209HAT):
     def __init__(self):
         # Can't delegate the axp209 setup to the parent constructor because
         #  we need it now.
-        self.axp = axp209.AXP209()
+        self.axp = AXP209()
         self.display_device = get_device()
         self.blank_page = page_none.PageBlank(self.display_device)
         self.low_battery_page = \
@@ -415,34 +415,52 @@ class q4y2018HAT(OledHAT):
                               bouncetime=125)
         super().__init__()
 
-        # clear all interrupt enables
-        for hexreg in range(0x40, 0x45):
-            hexval = self.axp.bus.read_byte_data(axp209.AXP209_ADDRESS, hexreg)
-            logging.debug(
-                "Value at %s = %s. Rewriting it to clear interrupt enables",
-                format(hexreg, "#02X"),
-                format(hexval, "#02X")
-            )
-            self.axp.bus.write_byte_data(axp209.AXP209_ADDRESS, hexreg, 0x00)
+        # Clear all IRQ Enable Control Registers. We may subsequently
+        #  enable interrupts on certain actions below, but let's start
+        #  with a known state for all registers.
+        for ec_reg in (0x40, 0x41, 0x42, 0x43, 0x44):
+            self.axp.bus.write_byte_data(AXP209_ADDRESS, ec_reg, 0x00)
 
-        # enable interrupts for Battery below LEVEL2 and N_OE low
-        self.axp.bus.write_byte_data(axp209.AXP209_ADDRESS, 0x43, 0x41)
+        # Now all interrupts are disabled, clear the previous state
+        self.clearAllPreviousInterrupts()
 
-        # change power down timeout to 3 seconds
-        hexval = self.axp.bus.read_byte_data(axp209.AXP209_ADDRESS, 0x32)
+        # shutdown delay time to 3 secs (they delay before axp209 yanks power
+        #  when it determines a shutdown is required) (default is 2 sec)
+        hexval = self.axp.bus.read_byte_data(AXP209_ADDRESS, 0x32)
         hexval = hexval | 0x03
-        self.axp.bus.write_byte_data(axp209.AXP209_ADDRESS, 0x32, hexval)
+        self.axp.bus.write_byte_data(AXP209_ADDRESS, 0x32, hexval)
 
-        # clear all previous interrupts by rewriting current value back to register
-        for hexreg in range(0x48, 0x4d):
-            hexval = self.axp.bus.read_byte_data(axp209.AXP209_ADDRESS, hexreg)
-            self.axp.bus.write_byte_data(axp209.AXP209_ADDRESS, hexreg, hexval)
+        # Enable interrupts when battery goes below LEVEL2 or when
+        #  N_OE (the power switch) goes high
+        self.axp.bus.write_byte_data(AXP209_ADDRESS, 0x43, 0x41)
+        GPIO.add_event_detect(self.PIN_AXP_INTERRUPT_LINE, GPIO.FALLING,
+                              callback=self.handleAXPInterrupt)
+
+    def clearAllPreviousInterrupts(self):
+        """
+        Reset interrupt state by writing a 1 to all bits of the state regs
+
+        From the AXP209 datasheet:
+        When certain events occur, AXP209 will inform the Host by pulling down
+        the IRQ interrupt line, and the interrupt state will be stored in
+        interrupt state registers (See registers REG48H, REG49H, REG4AH, REG4BH
+        and REG4CH). The interrupt can be cleared by writing 1 to corresponding
+        state register bit.
+
+        Note that 0x4B is the only one that's enabled at this stage, but let's
+        be thorough so that we don't need to change this if we start using the
+        others.
+        """
+        # (IRQ status register 1-5)
+        for stat_reg in (0x48, 0x49, 0x4A, 0x4B, 0x4C):
+            self.axp.bus.write_byte_data(AXP209_ADDRESS, stat_reg, 0xFF)
         logging.debug("IRQ records cleared")
 
-        GPIO.add_event_detect(self.PIN_AXP_INTERRUPT_LINE, GPIO.FALLING,
-                              callback=self.doFakeShutdown)
-
-    def doFakeShutdown(self, channel):
-        logging.info("Processing falling edge on GPIO %s. "
-                     "We'd shutdown here for real once testing is done",
-                     channel)
+    def handleAXPInterrupt(self, channel):
+        logging.info("Processing falling edge on GPIO %s.", channel)
+        # Clear interrupts during development (to come out before final
+        #  release) so we can time the shutdown
+        self.clearAllPreviousInterrupts()
+        # We've masked all other interrupt sources, so the desired action
+        #  here is always to shutdown
+        self.shutdownDevice()
