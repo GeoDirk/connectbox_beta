@@ -60,7 +60,6 @@ class DummyHAT(AbstractHAT):
 
 class q1y2018HAT(AbstractHAT):
 
-    DEFAULT_LOW_VOLTAGE_ITERATIONS_BEFORE_SHUTDOWN = 3
     # Pin numbers from https://github.com/auto3000/RPi.GPIO_NP
     PIN_VOLT_3_0 = PG6 = 8
     PIN_VOLT_3_2 = PG7 = 10
@@ -82,8 +81,6 @@ class q1y2018HAT(AbstractHAT):
         """
         monitors battery voltage and shuts down the device when levels are low
         """
-        lv_iterations_remaining = \
-            self.DEFAULT_LOW_VOLTAGE_ITERATIONS_BEFORE_SHUTDOWN
         logging.info("Starting Monitoring")
         while True:
             with min_execution_time(min_time_secs=10):
@@ -104,12 +101,6 @@ class q1y2018HAT(AbstractHAT):
                 if GPIO.input(self.PIN_VOLT_3_2):
                     # Voltage above 3.2V
                     blink_LEDxTimes(self.PIN_LED, 2)
-                    # Reset the low voltage loop counter in case we're
-                    #  recovering from a below-3.0V situation
-                    # XXX - if voltage transitions from 2.9->3.3 then this will
-                    #       not be reset. Consider robustifying
-                    lv_iterations_remaining = \
-                        self.DEFAULT_LOW_VOLTAGE_ITERATIONS_BEFORE_SHUTDOWN
                     continue
 
                 logging.info("Battery voltage below 3.2V")
@@ -119,20 +110,8 @@ class q1y2018HAT(AbstractHAT):
                     # Given battery voltage is below 3.2V, we want to perform
                     #  a controlled shutdown so that the hardware cutoff is
                     #  not triggered (see below).
-                    # We want to make sure we're really below 3.2V, so we read
-                    #  on a few iterations to make sure that we are still
-                    #  getting the same info each time before triggering
-                    #  a controlled shutdown
-                    if lv_iterations_remaining == 0:
-                        logging.warning("Exiting main loop for shutdown")
-                        # Time to shutdown
-                        self.shutdownDevice()
-                    else:
-                        logging.info("Low voltage. %s loop(s) remaining",
-                                     lv_iterations_remaining)
-                        blink_LEDxTimes(self.PIN_LED, 4)
-                        lv_iterations_remaining -= 1
-                        continue
+                    logging.warning("Exiting main loop for shutdown")
+                    self.shutdownDevice()
 
                 logging.warning("Battery voltage below 3.0V")
                 # The circuitry on the HAT triggers a shutdown of the 5V
