@@ -51,7 +51,6 @@ class AbstractHAT:
 
 
 class DummyHAT(AbstractHAT):
-    pins_to_initialise = []
 
     # pylint: disable=no-self-use
     # This is a standard interface - it's ok not to use self for a dummy impl
@@ -127,7 +126,7 @@ class q1y2018HAT(AbstractHAT):
                     if lv_iterations_remaining == 0:
                         logging.warning("Exiting main loop for shutdown")
                         # Time to shutdown
-                        AbstractHAT.shutdownDevice()
+                        self.shutdownDevice()
                     else:
                         logging.info("Low voltage. %s loop(s) remaining",
                                      lv_iterations_remaining)
@@ -142,7 +141,7 @@ class q1y2018HAT(AbstractHAT):
                 #  if we're here, then we're about to get the power yanked
                 #  anyway so attempt a graceful shutdown immediately.
                 logging.warning("Immediately exiting main loop for shutdown")
-                AbstractHAT.shutdownDevice()
+                self.shutdownDevice()
 
 
 class Axp209HAT(AbstractHAT):
@@ -190,7 +189,7 @@ class Axp209HAT(AbstractHAT):
 
             if self.scheduledShutdownTime and \
                     time.time() > self.scheduledShutdownTime:
-                AbstractHAT.shutdownDevice()
+                self.shutdownDevice()
 
             # Wait before next loop iteration
             time.sleep(1)
@@ -352,7 +351,7 @@ class OledHAT(Axp209HAT):
 
             if self.scheduledShutdownTime and \
                     time.time() > self.scheduledShutdownTime:
-                AbstractHAT.shutdownDevice()
+                self.shutdownDevice()
 
             # Wait before next loop iteration
             time.sleep(1)
