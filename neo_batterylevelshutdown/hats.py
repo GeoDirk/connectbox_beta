@@ -37,7 +37,7 @@ def min_execution_time(min_time_secs):
     time.sleep(period)
 
 
-class AbstractHAT:
+class BasePhysicalHAT:
 
     PIN_LED = PA6 = 12
 
@@ -77,7 +77,7 @@ class DummyHAT:
         logging.info("There is no HAT, so there's nothing to do")
 
 
-class q1y2018HAT(AbstractHAT):
+class q1y2018HAT(BasePhysicalHAT):
 
     # Pin numbers from https://github.com/auto3000/RPi.GPIO_NP
     PIN_VOLT_3_0 = PG6 = 8
@@ -139,7 +139,7 @@ class q1y2018HAT(AbstractHAT):
                 self.blinkLED(times=3)
 
 
-class Axp209HAT(AbstractHAT):
+class Axp209HAT(BasePhysicalHAT):
     SHUTDOWN_WARNING_PERIOD_SECS = 60
     BATTERY_CHECK_FREQUENCY_SECS = 30
     BATTERY_SHUTDOWN_THRESHOLD_PERC = 4

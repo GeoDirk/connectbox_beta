@@ -12,7 +12,7 @@ from .HAT_Utilities import get_device
 
 
 def getHATVersion():
-    GPIO.setup(hats.AbstractHAT.PA6, GPIO.IN)
+    GPIO.setup(hats.BasePhysicalHAT.PA6, GPIO.IN)
     # As PA6 is set to be a pulldown resistor on system startup by the
     #  pa6-pulldown.service, and the HAT sets PA6 HIGH, so we check the
     #  value of PA6, knowing non-HAT NEOs will read LOW.
@@ -21,7 +21,7 @@ def getHATVersion():
     #  or read from it. That's the safe option and means that we won't
     #  immediately shutdown devices that don't have a HAT if we've incorrect
     #  detected the presence of a HAT
-    if GPIO.input(hats.AbstractHAT.PA6) == GPIO.LOW:
+    if GPIO.input(hats.BasePhysicalHAT.PA6) == GPIO.LOW:
         logging.info("NEO HAT not detected")
         return hats.DummyHAT
 
