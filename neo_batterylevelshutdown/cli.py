@@ -6,7 +6,7 @@ import logging
 
 import axp209
 import click
-import RPi.GPIO as GPIO  #pylint: disable=import-error
+import RPi.GPIO as GPIO  # pylint: disable=import-error
 import neo_batterylevelshutdown.hats as hats
 from .HAT_Utilities import get_device
 
