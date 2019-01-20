@@ -151,12 +151,9 @@ class Axp209HAT(AbstractHAT):
         logging.debug("Battery Level: %s%%", self.axp.battery_gauge)
         return self.axp.battery_gauge > level
 
-    def BatteryPresent(self):
-        return self.axp.battery_exists
-
     def mainLoop(self):
         # We only do battery checking... without a battery we can just exit
-        if not self.BatteryPresent():
+        if not self.axp.battery_exists:
             return
 
         while True:
@@ -314,7 +311,7 @@ class OledHAT(Axp209HAT):
                     self.curPage.draw_page()
 
             if time.time() > self.nextBatteryCheckTime and \
-                    self.BatteryPresent():
+                    self.axp.battery_exists:
                 if self.batteryLevelAbovePercent(
                         self.BATTERY_SHUTDOWN_THRESHOLD_PERC):
                     logging.debug("Battery above warning level")
