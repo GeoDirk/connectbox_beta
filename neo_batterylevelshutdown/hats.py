@@ -142,7 +142,11 @@ class q1y2018HAT(BasePhysicalHAT):
 class Axp209HAT(BasePhysicalHAT):
     SHUTDOWN_WARNING_PERIOD_SECS = 60
     BATTERY_CHECK_FREQUENCY_SECS = 30
-    BATTERY_SHUTDOWN_THRESHOLD_PERC = 4
+    MIN_BATTERY_THRESHOLD_PERC_SOLID = 63  # Parity with PIN_VOLT_3_84
+    MIN_BATTERY_THRESHOLD_PERC_SINGLE_FLASH = 33  # Parity with PIN_VOLT_3_71
+    MIN_BATTERY_THRESHOLD_PERC_DOUBLE_FLASH = 3  # Parity with PIN_VOLT_3_45
+    BATTERY_WARNING_THRESHOLD_PERC = MIN_BATTERY_THRESHOLD_PERC_DOUBLE_FLASH
+    BATTERY_SHUTDOWN_THRESHOLD_PERC = 1
 
     def __init__(self):
         self.axp = AXP209()
@@ -163,33 +167,37 @@ class Axp209HAT(BasePhysicalHAT):
         logging.debug("Battery Level: %s%%", self.axp.battery_gauge)
         return self.axp.battery_gauge > level
 
+    def updateLEDState(self):
+        if self.batteryLevelAbovePercent(
+                self.MIN_BATTERY_THRESHOLD_PERC_SOLID):
+            self.solidLED()
+            return
+
+        if self.batteryLevelAbovePercent(
+                self.MIN_BATTERY_THRESHOLD_PERC_SINGLE_FLASH):
+            self.blinkLED(times=1)
+            return
+
+        if self.batteryLevelAbovePercent(
+                self.MIN_BATTERY_THRESHOLD_PERC_DOUBLE_FLASH):
+            self.blinkLED(times=2)
+            return
+
+        # If we're here, we're below the double flash threshold and haven't
+        #  yet been shutdown, so flash three times
+        self.blinkLED(times=3)
+
     def mainLoop(self):
         while True:
-            if time.time() > self.nextBatteryCheckTime:
-                if self.batteryLevelAbovePercent(
-                        self.BATTERY_SHUTDOWN_THRESHOLD_PERC):
-                    logging.debug("Battery above warning level")
-                    # If we have a pending shutdown, cancel it
-                    if self.scheduledShutdownTime:
-                        self.scheduledShutdownTime = 0
-                else:
-                    logging.debug("Battery below warning level")
-                    # Schedule a shutdown time if we don't already have one
-                    if not self.scheduledShutdownTime:
-                        self.scheduledShutdownTime = \
-                            time.time() + self.SHUTDOWN_WARNING_PERIOD_SECS
+            with min_execution_time(min_time_secs=self.LED_CYCLE_TIME_SECS):
+                self.updateLEDState()
+                if time.time() > self.nextBatteryCheckTime:
+                    if not self.batteryLevelAbovePercent(
+                            self.BATTERY_SHUTDOWN_THRESHOLD_PERC):
+                        self.shutdownDevice()
 
-                self.nextBatteryCheckTime = \
-                    time.time() + self.BATTERY_CHECK_FREQUENCY_SECS
-
-            if self.scheduledShutdownTime and \
-                    time.time() > self.scheduledShutdownTime:
-                self.shutdownDevice()
-
-            # Wait before next loop iteration
-            time.sleep(1)
-
-        return
+                    self.nextBatteryCheckTime = \
+                        time.time() + self.BATTERY_CHECK_FREQUENCY_SECS
 
 
 class OledHAT(Axp209HAT):
@@ -304,45 +312,43 @@ class OledHAT(Axp209HAT):
 
     def mainLoop(self):
         while True:
-            if time.time() > self.displayPowerOffTime:
-                # Power off the display
-                if self.curPage != self.blank_page:
-                    with self.curPageLock:
-                        self.curPage = self.blank_page
-                        self.curPage.draw_page()
-
-            if time.time() > self.nextBatteryCheckTime:
-                if self.batteryLevelAbovePercent(
-                        self.BATTERY_SHUTDOWN_THRESHOLD_PERC):
-                    logging.debug("Battery above warning level")
-                    # If we have a pending shutdown, cancel it and blank the
-                    #  display (at next chance) to hide the low battery warning
-                    if self.scheduledShutdownTime:
-                        self.scheduledShutdownTime = 0
-                        self.displayPowerOffTime = 0
-                else:
-                    logging.debug("Battery below warning level")
-                    # Schedule a shutdown time if we don't already have one
-                    if not self.scheduledShutdownTime:
-                        self.scheduledShutdownTime = \
-                            time.time() + self.SHUTDOWN_WARNING_PERIOD_SECS
-                        # Don't blank the display while we're in the warning
-                        #  period so the low battery warning shows to the end
-                        self.displayPowerOffTime = \
-                            self.scheduledShutdownTime + 1
+            with min_execution_time(min_time_secs=self.LED_CYCLE_TIME_SECS):
+                if time.time() > self.displayPowerOffTime:
+                    # Power off the display
+                    if self.curPage != self.blank_page:
                         with self.curPageLock:
-                            self.curPage = self.low_battery_page
+                            self.curPage = self.blank_page
                             self.curPage.draw_page()
 
-                self.nextBatteryCheckTime = \
-                    time.time() + self.BATTERY_CHECK_FREQUENCY_SECS
+                if time.time() > self.nextBatteryCheckTime:
+                    if not self.batteryLevelAbovePercent(
+                            self.BATTERY_SHUTDOWN_THRESHOLD_PERC):
+                        self.shutdownDevice()
 
-            if self.scheduledShutdownTime and \
-                    time.time() > self.scheduledShutdownTime:
-                self.shutdownDevice()
+                    if self.batteryLevelAbovePercent(
+                            self.BATTERY_WARNING_THRESHOLD_PERC):
+                        logging.debug("Battery above warning level")
+                        # Hide the low battery warning (at the next chance), if
+                        #  we're currently showing it
+                        if self.curPage == self.low_battery_page:
+                            self.displayPowerOffTime = 0
+                    else:
+                        logging.debug("Battery below warning level")
+                        # show the low battery warning, if we're not currently
+                        #  showing it.
+                        if self.curPage != self.low_battery_page:
+                            # Don't blank the display while we're in the
+                            #  warning period so the low battery warning shows
+                            #  to the end
+                            self.displayPowerOffTime = sys.maxsize
+                            with self.curPageLock:
+                                self.curPage = self.low_battery_page
+                                self.curPage.draw_page()
 
-            # Wait before next loop iteration
-            time.sleep(1)
+                    self.nextBatteryCheckTime = \
+                        time.time() + self.BATTERY_CHECK_FREQUENCY_SECS
+
+                self.updateLEDState()
 
 
 class q3y2018HAT(OledHAT):
