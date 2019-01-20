@@ -40,6 +40,7 @@ def min_execution_time(min_time_secs):
 class BasePhysicalHAT:
 
     PIN_LED = PA6 = 12
+    LED_CYCLE_TIME_SECS = 5
 
     def __init__(self):
         GPIO.setup(self.PIN_LED, GPIO.OUT)
@@ -113,20 +114,19 @@ class q1y2018HAT(BasePhysicalHAT):
         """
         logging.info("Starting Monitoring")
         while True:
-            with min_execution_time(min_time_secs=5):
+            with min_execution_time(min_time_secs=self.LED_CYCLE_TIME_SECS):
                 if GPIO.input(self.PIN_VOLT_3_84):
                     logging.debug("Battery voltage > 3.84V i.e. > ~63%")
                     self.solidLED()
                     continue
 
-                logging.debug("Battery voltage < 3.84V i.e. < ~63%")
                 if GPIO.input(self.PIN_VOLT_3_71):
-                    # Voltage above 3.71V
+                    logging.debug("Battery voltage 3.71-3.84V i.e. ~33-63%")
                     self.blinkLED(times=1)
                     continue
 
-                logging.debug("Battery voltage < 3.71V i.e. < ~33%")
                 if GPIO.input(self.PIN_VOLT_3_45):
+                    logging.debug("Battery voltage 3.45-3.71V i.e. ~3-33%")
                     # Voltage above 3.45V
                     self.blinkLED(times=2)
                     continue
