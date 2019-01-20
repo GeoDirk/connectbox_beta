@@ -13,17 +13,6 @@ import time
 from luma.core import cmdline, error  #pylint: disable=import-error
 import RPi.GPIO as GPIO  #pylint: disable=import-error
 
-LED_FLASH_DELAY_SEC = 0.1
-
-
-def blink_LEDxTimes(pinNum, times):
-    """Blink the LED a certain number of times"""
-    for _ in range(0, times):
-        GPIO.output(pinNum, GPIO.HIGH)
-        time.sleep(LED_FLASH_DELAY_SEC)
-        GPIO.output(pinNum, GPIO.LOW)
-        time.sleep(LED_FLASH_DELAY_SEC)
-
 
 def GetReleaseVersion():
     """Read the release version"""

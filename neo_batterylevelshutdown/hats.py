@@ -10,7 +10,6 @@ from axp209 import AXP209, AXP209_ADDRESS
 from PIL import Image
 import RPi.GPIO as GPIO  #pylint: disable=import-error
 from .HAT_Utilities import get_device
-from .HAT_Utilities import blink_LEDxTimes
 from . import page_none
 from . import page_main
 from . import page_battery
@@ -62,20 +61,83 @@ class q1y2018HAT(AbstractHAT):
 
     # Pin numbers from https://github.com/auto3000/RPi.GPIO_NP
     PIN_VOLT_3_0 = PG6 = 8
-    PIN_VOLT_3_2 = PG7 = 10
-    PIN_VOLT_3_4 = PG8 = 16
-    PIN_VOLT_3_6 = PG9 = 18
+    PIN_VOLT_3_45 = PG7 = 10
+    PIN_VOLT_3_71 = PG8 = 16
+    PIN_VOLT_3_84 = PG9 = 18
 
     def __init__(self):
         logging.info("Initializing Pins")
         GPIO.setup(self.PIN_LED, GPIO.OUT)
         # perjaps we can use pull_up_down args here and get rid of pa service?
         GPIO.setup(self.PIN_VOLT_3_0, GPIO.IN)
-        GPIO.setup(self.PIN_VOLT_3_2, GPIO.IN)
-        GPIO.setup(self.PIN_VOLT_3_4, GPIO.IN)
-        GPIO.setup(self.PIN_VOLT_3_6, GPIO.IN)
+        GPIO.setup(self.PIN_VOLT_3_45, GPIO.IN)
+        GPIO.setup(self.PIN_VOLT_3_71, GPIO.IN)
+        GPIO.setup(self.PIN_VOLT_3_84, GPIO.IN)
+        GPIO.add_event_detect(self.PIN_VOLT_3_84, GPIO.BOTH,
+                              callback=self.handleVoltageTransition)
+        GPIO.add_event_detect(self.PIN_VOLT_3_71, GPIO.BOTH,
+                              callback=self.handleVoltageTransition)
+        GPIO.add_event_detect(self.PIN_VOLT_3_45, GPIO.BOTH,
+                              callback=self.handleVoltageTransition)
+        # We never care about PIN_VOLT_3_0 going high because there's
+        #  no coming back from the shutdown that's triggered when it
+        #  goes low i.e. we only look for falling edge detect
+        GPIO.add_event_detect(self.PIN_VOLT_3_0, GPIO.FALLING,
+                              callback=self.handleVoltageTransition)
         logging.info("Pin initialization complete")
+        self.led_display_function = self.solidLED
         super().__init__()
+
+    def handleVoltageTransition(self, channel):
+        # Read the pin - if it's high, then we just rose. There's a race
+        #  condition in that the pin may have changed state since the event
+        #  detection, but in practice we don't have flapping transitions so
+        #  this shouldn't be an issue
+        is_rising = GPIO.input(channel)
+        #is_rising = False
+        if is_rising:
+            logging.debug("processing rising voltage transition for "
+                          "channel %s", channel)
+        else:
+            logging.debug("processing falling voltage transition for "
+                          "channel %s", channel)
+        if channel == self.PIN_VOLT_3_0:
+            logging.warning("Battery voltage below 3.0V")
+            # The circuitry on the HAT triggers a shutdown of the 5V
+            #  converter once battery voltage goes below 3.0V. It gives
+            #  an 8 second grace period before yanking the power, so
+            #  if we're here, then we're about to get the power yanked
+            #  so attempt a graceful shutdown immediately.
+            logging.warning("Immediately exiting main loop for shutdown")
+            self.shutdownDevice()
+        elif channel == self.PIN_VOLT_3_45:
+            if is_rising:
+                self.led_display_function = self.gt_3point45v_lt_3point71v
+            else:
+                self.led_display_function = self.gt_3point0v_lt_3point45v
+        elif channel == self.PIN_VOLT_3_71:
+            if is_rising:
+                self.led_display_function = self.gt_3point71v_lt_3point84v
+            else:
+                self.led_display_function = self.gt_3point45v_lt_3point71v
+        elif channel == self.PIN_VOLT_3_84:
+            if is_rising:
+                self.led_display_function = self.gt_3point84v
+            else:
+                self.led_display_function = self.gt_3point71v_lt_3point84v
+        else:
+            logging.warning("voltage transition callback triggered with "
+                            "unknown channel %s", channel)
+
+    def blinkLED(self, times, flashDelay=0.1):
+        for _ in range(0, times):
+            GPIO.output(self.PIN_LED, GPIO.HIGH)
+            time.sleep(flashDelay)
+            GPIO.output(self.PIN_LED, GPIO.LOW)
+            time.sleep(flashDelay)
+
+    def solidLED(self):
+        GPIO.output(self.PIN_LED, GPIO.LOW)
 
     def mainLoop(self):
         """
