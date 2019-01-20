@@ -63,3 +63,6 @@ target/
 
 # Editor
 *.swp
+
+# Mac
+.DS_Store
