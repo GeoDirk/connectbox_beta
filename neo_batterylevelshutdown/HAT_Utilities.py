@@ -9,9 +9,7 @@
 ===========================================
 """
 import logging
-import time
-from luma.core import cmdline, error  #pylint: disable=import-error
-import RPi.GPIO as GPIO  #pylint: disable=import-error
+from luma.core import cmdline, error  # pylint: disable=import-error
 
 
 def GetReleaseVersion():
