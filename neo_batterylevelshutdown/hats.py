@@ -426,8 +426,10 @@ class q4y2018HAT(OledHAT):
         # Enable interrupts when battery goes below LEVEL2 or when
         #  N_OE (the power switch) goes high
         self.axp.bus.write_byte_data(AXP209_ADDRESS, 0x43, 0x41)
+        # We've masked all other interrupt sources for the AXP interrupt line
+        #  so the desired action here is always to shutdown
         GPIO.add_event_detect(self.PIN_AXP_INTERRUPT_LINE, GPIO.FALLING,
-                              callback=self.handleAXPInterrupt)
+                              callback=self.shutdownDeviceCallback)
 
     def clearAllPreviousInterrupts(self):
         """
@@ -448,9 +450,3 @@ class q4y2018HAT(OledHAT):
         for stat_reg in (0x48, 0x49, 0x4A, 0x4B, 0x4C):
             self.axp.bus.write_byte_data(AXP209_ADDRESS, stat_reg, 0xFF)
         logging.debug("IRQ records cleared")
-
-    def handleAXPInterrupt(self, channel):
-        logging.debug("Processing falling edge on GPIO %s.", channel)
-        # We've masked all other interrupt sources, so the desired action
-        #  here is always to shutdown
-        self.shutdownDevice()
