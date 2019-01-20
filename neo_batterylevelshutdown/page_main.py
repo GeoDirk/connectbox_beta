@@ -76,7 +76,7 @@ class PageMain:
             d.line((37, 58, 57, 51), fill="black", width=2)
         else:
             # get the percent filled and draw a rectangle
-            if self.axp.battery_gauge > 10:
+            if self.axp.battery_gauge < 10:
                 d.rectangle((37, 51, 39, 58), fill="black")
                 d.text((43, 51), "!", font=font14, fill="black")
             else:
