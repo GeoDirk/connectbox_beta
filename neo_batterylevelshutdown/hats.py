@@ -8,7 +8,7 @@ import time
 import threading
 from axp209 import AXP209, AXP209_ADDRESS
 from PIL import Image
-import RPi.GPIO as GPIO  #pylint: disable=import-error
+import RPi.GPIO as GPIO  # pylint: disable=import-error
 from .HAT_Utilities import get_device
 from . import page_none
 from . import page_main
@@ -32,7 +32,7 @@ def min_execution_time(min_time_secs):
     duration = time.monotonic() - start_time
     # If the function has run over the min execution time, don't sleep
     period = max(0, min_time_secs - duration)
-    logging.debug("sleeping for %s seconds to guarantee min exec time", period)
+    logging.debug("sleeping for %.2f secs to guarantee min exec time", period)
     time.sleep(period)
 
 
@@ -47,6 +47,11 @@ class AbstractHAT:
     def shutdownDevice(cls):
         logging.info("Exiting for Shutdown")
         os.system("shutdown now")
+
+    def shutdownDeviceCallback(self, channel):
+        logging.debug("Triggering device shutdown based on edge detection "
+                      "of GPIO %s.", channel)
+        self.shutdownDevice()
 
 
 class DummyHAT(AbstractHAT):
@@ -68,68 +73,27 @@ class q1y2018HAT(AbstractHAT):
     def __init__(self):
         logging.info("Initializing Pins")
         GPIO.setup(self.PIN_LED, GPIO.OUT)
-        # perjaps we can use pull_up_down args here and get rid of pa service?
         GPIO.setup(self.PIN_VOLT_3_0, GPIO.IN)
         GPIO.setup(self.PIN_VOLT_3_45, GPIO.IN)
         GPIO.setup(self.PIN_VOLT_3_71, GPIO.IN)
         GPIO.setup(self.PIN_VOLT_3_84, GPIO.IN)
-        GPIO.add_event_detect(self.PIN_VOLT_3_84, GPIO.BOTH,
-                              callback=self.handleVoltageTransition)
-        GPIO.add_event_detect(self.PIN_VOLT_3_71, GPIO.BOTH,
-                              callback=self.handleVoltageTransition)
-        GPIO.add_event_detect(self.PIN_VOLT_3_45, GPIO.BOTH,
-                              callback=self.handleVoltageTransition)
-        # We never care about PIN_VOLT_3_0 going high because there's
-        #  no coming back from the shutdown that's triggered when it
-        #  goes low i.e. we only look for falling edge detect
-        GPIO.add_event_detect(self.PIN_VOLT_3_0, GPIO.FALLING,
-                              callback=self.handleVoltageTransition)
         logging.info("Pin initialization complete")
-        self.led_display_function = self.solidLED
+        # The circuitry on the HAT triggers a shutdown of the 5V converter
+        #  once battery voltage goes below 3.0V. It gives an 8 second grace
+        #  period before yanking the power, so if we have a falling edge on
+        #  PIN_VOLT_3_0, then we're about to get the power yanked so attempt
+        #  a graceful shutdown immediately.
+        GPIO.add_event_detect(self.PIN_VOLT_3_0, GPIO.FALLING,
+                              callback=self.shutdownDeviceCallback)
+        # We cannot perform edge detection on PG7, PG8 or PG9 because there
+        #  is no hardware hysteresis built into those level detectors, so when
+        #  charging, the charger chip causes edge transitions (mostly rising
+        #  but there are also some falling) at a rate of tens per second which
+        #  means the software (and thus the board) is consuming lots of CPU
+        #  and thus the charge rate is slower.
         super().__init__()
 
-    def handleVoltageTransition(self, channel):
-        # Read the pin - if it's high, then we just rose. There's a race
-        #  condition in that the pin may have changed state since the event
-        #  detection, but in practice we don't have flapping transitions so
-        #  this shouldn't be an issue
-        is_rising = GPIO.input(channel)
-        #is_rising = False
-        if is_rising:
-            logging.debug("processing rising voltage transition for "
-                          "channel %s", channel)
-        else:
-            logging.debug("processing falling voltage transition for "
-                          "channel %s", channel)
-        if channel == self.PIN_VOLT_3_0:
-            logging.warning("Battery voltage below 3.0V")
-            # The circuitry on the HAT triggers a shutdown of the 5V
-            #  converter once battery voltage goes below 3.0V. It gives
-            #  an 8 second grace period before yanking the power, so
-            #  if we're here, then we're about to get the power yanked
-            #  so attempt a graceful shutdown immediately.
-            logging.warning("Immediately exiting main loop for shutdown")
-            self.shutdownDevice()
-        elif channel == self.PIN_VOLT_3_45:
-            if is_rising:
-                self.led_display_function = self.gt_3point45v_lt_3point71v
-            else:
-                self.led_display_function = self.gt_3point0v_lt_3point45v
-        elif channel == self.PIN_VOLT_3_71:
-            if is_rising:
-                self.led_display_function = self.gt_3point71v_lt_3point84v
-            else:
-                self.led_display_function = self.gt_3point45v_lt_3point71v
-        elif channel == self.PIN_VOLT_3_84:
-            if is_rising:
-                self.led_display_function = self.gt_3point84v
-            else:
-                self.led_display_function = self.gt_3point71v_lt_3point84v
-        else:
-            logging.warning("voltage transition callback triggered with "
-                            "unknown channel %s", channel)
-
-    def blinkLED(self, times, flashDelay=0.1):
+    def blinkLED(self, times, flashDelay=0.3):
         for _ in range(0, times):
             GPIO.output(self.PIN_LED, GPIO.HIGH)
             time.sleep(flashDelay)
@@ -145,44 +109,31 @@ class q1y2018HAT(AbstractHAT):
         """
         logging.info("Starting Monitoring")
         while True:
-            with min_execution_time(min_time_secs=10):
-                if GPIO.input(self.PIN_VOLT_3_6):
-                    # Voltage above 3.6V
-                    # Show solid LED
-                    logging.debug("Battery voltage above 3.6V")
-                    GPIO.output(self.PIN_LED, GPIO.LOW)
+            with min_execution_time(min_time_secs=5):
+                if GPIO.input(self.PIN_VOLT_3_84):
+                    # Voltage above 3.84V
+                    logging.debug("Battery voltage above 3.84V")
+                    self.solidLED()
                     continue
 
-                logging.debug("Battery voltage below 3.6V")
-                if GPIO.input(self.PIN_VOLT_3_4):
-                    # Voltage above 3.4V
-                    blink_LEDxTimes(self.PIN_LED, 1)
+                logging.debug("Battery voltage below 3.84V")
+                if GPIO.input(self.PIN_VOLT_3_71):
+                    # Voltage above 3.71V
+                    self.blinkLED(times=1)
                     continue
 
-                logging.debug("Battery voltage below 3.4V")
-                if GPIO.input(self.PIN_VOLT_3_2):
-                    # Voltage above 3.2V
-                    blink_LEDxTimes(self.PIN_LED, 2)
+                logging.debug("Battery voltage below 3.71V")
+                if GPIO.input(self.PIN_VOLT_3_45):
+                    # Voltage above 3.45V
+                    self.blinkLED(times=2)
                     continue
 
-                logging.info("Battery voltage below 3.2V")
-                if GPIO.input(self.PIN_VOLT_3_0):
-                    # Voltage above 3.0V
-                    blink_LEDxTimes(self.PIN_LED, 3)
-                    # Given battery voltage is below 3.2V, we want to perform
-                    #  a controlled shutdown so that the hardware cutoff is
-                    #  not triggered (see below).
-                    logging.warning("Exiting main loop for shutdown")
-                    self.shutdownDevice()
-
-                logging.warning("Battery voltage below 3.0V")
-                # The circuitry on the HAT triggers a shutdown of the 5V
-                #  converter once battery voltage goes below 3.0V. It gives
-                #  an 8 second grace period before yanking the power, so
-                #  if we're here, then we're about to get the power yanked
-                #  anyway so attempt a graceful shutdown immediately.
-                logging.warning("Immediately exiting main loop for shutdown")
-                self.shutdownDevice()
+                # If we're here, we can assume that PIN_VOLT_3_0 is high,
+                #  otherwise we'd have triggered the falling edge detection
+                #  on that pin, and we'd be in the process of shutting down
+                #  courtesy of the callback.
+                logging.info("Battery voltage below 3.45V")
+                self.blinkLED(times=3)
 
 
 class Axp209HAT(AbstractHAT):
@@ -335,7 +286,8 @@ class OledHAT(Axp209HAT):
                 if self.curPage == self.pages[0]:
                     self.curPage = self.pages[-1]
                 else:
-                    self.curPage = self.pages[self.pages.index(self.curPage) - 1]
+                    self.curPage = \
+                        self.pages[self.pages.index(self.curPage) - 1]
 
             # draw the page while holding the lock, so that it doesn't change
             #  underneath us
@@ -363,7 +315,8 @@ class OledHAT(Axp209HAT):
                     self.curPage = self.blank_page
                     self.curPage.draw_page()
 
-            if time.time() > self.nextBatteryCheckTime and self.BatteryPresent():
+            if time.time() > self.nextBatteryCheckTime and \
+                    self.BatteryPresent():
                 if self.batteryLevelAbovePercent(
                         self.BATTERY_SHUTDOWN_THRESHOLD_PERC):
                     logging.debug("Battery above warning level")
@@ -382,7 +335,8 @@ class OledHAT(Axp209HAT):
                             time.time() + self.SHUTDOWN_WARNING_PERIOD_SECS
                         # Don't blank the display while we're in the warning
                         #  period so the low battery warning shows to the end
-                        self.displayPowerOffTime = self.scheduledShutdownTime + 1
+                        self.displayPowerOffTime = \
+                            self.scheduledShutdownTime + 1
                         with self.curPageLock:
                             self.curPage = self.low_battery_page
                             self.curPage.draw_page()
