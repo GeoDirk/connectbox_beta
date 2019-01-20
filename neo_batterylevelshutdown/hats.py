@@ -190,7 +190,14 @@ class Axp209HAT(BasePhysicalHAT):
     def mainLoop(self):
         while True:
             with min_execution_time(min_time_secs=self.LED_CYCLE_TIME_SECS):
+                # Give a rough idea of battery capacity based on the LEDs
                 self.updateLEDState()
+                # Check battery and possibly shutdown
+                # Do this less frequently than updating LEDs. We could do
+                #  these checks more frequently if we wanted to - the battery
+                #  impact is probably minimal but that would mean we need to
+                #  check for whether the battery is connected on each loop so
+                #  readability doesn't necessarily improve
                 if time.time() > self.nextBatteryCheckTime:
                     if not self.batteryLevelAbovePercent(
                             self.BATTERY_SHUTDOWN_THRESHOLD_PERC):
@@ -232,8 +239,6 @@ class OledHAT(Axp209HAT):
         #  current page variable as it can be modified from the main loop
         #  and from callbacks
         self.curPageLock = threading.Lock()
-        # This is set in the start of the main loop anyway, but let's make
-        #  sure it's defined for clarity's sake in the constructor
         self.curPage = self.STARTING_PAGE_INDEX
         super().__init__()
         # draw the connectbox logo
@@ -313,13 +318,19 @@ class OledHAT(Axp209HAT):
     def mainLoop(self):
         while True:
             with min_execution_time(min_time_secs=self.LED_CYCLE_TIME_SECS):
+                # Perhaps power off the display
                 if time.time() > self.displayPowerOffTime:
-                    # Power off the display
                     if self.curPage != self.blank_page:
                         with self.curPageLock:
                             self.curPage = self.blank_page
                             self.curPage.draw_page()
 
+                # Check battery and possibly shutdown or show low battery page
+                # Do this less frequently than updating LEDs. We could do
+                #  these checks more frequently if we wanted to - the battery
+                #  impact is probably minimal but that would mean we need to
+                #  check for whether the battery is connected on each loop so
+                #  readability doesn't necessarily improve
                 if time.time() > self.nextBatteryCheckTime:
                     if not self.batteryLevelAbovePercent(
                             self.BATTERY_SHUTDOWN_THRESHOLD_PERC):
@@ -348,6 +359,7 @@ class OledHAT(Axp209HAT):
                     self.nextBatteryCheckTime = \
                         time.time() + self.BATTERY_CHECK_FREQUENCY_SECS
 
+                # Give a rough idea of battery capacity based on the LEDs
                 self.updateLEDState()
 
 
