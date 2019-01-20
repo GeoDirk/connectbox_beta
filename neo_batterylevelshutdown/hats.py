@@ -4,6 +4,7 @@ from contextlib import contextmanager
 import logging
 import os
 import os.path
+import sys
 import time
 import threading
 from axp209 import AXP209, AXP209_ADDRESS
@@ -143,8 +144,15 @@ class Axp209HAT(AbstractHAT):
         self.axp = AXP209()
         # no shutdown currently scheduled
         self.scheduledShutdownTime = 0
-        # schedule battery check immediately
-        self.nextBatteryCheckTime = 0
+        # If we have a battery, perform a level check at our first chance but
+        #  if we don't, never schedule the battery check (this assumes that
+        #  the battery will never be plugged in after startup, which is a
+        #  reasonable assumption for non-development situations)
+        if self.axp.battery_exists:
+            self.nextBatteryCheckTime = 0
+        else:
+            # Never schedule it...
+            self.nextBatteryCheckTime = sys.maxsize
         super().__init__()
 
     def batteryLevelAbovePercent(self, level):
@@ -152,10 +160,6 @@ class Axp209HAT(AbstractHAT):
         return self.axp.battery_gauge > level
 
     def mainLoop(self):
-        # We only do battery checking... without a battery we can just exit
-        if not self.axp.battery_exists:
-            return
-
         while True:
             if time.time() > self.nextBatteryCheckTime:
                 if self.batteryLevelAbovePercent(
@@ -303,18 +307,15 @@ class OledHAT(Axp209HAT):
                         self.curPage = self.blank_page
                         self.curPage.draw_page()
 
-            if time.time() > self.nextBatteryCheckTime and \
-                    self.axp.battery_exists:
+            if time.time() > self.nextBatteryCheckTime:
                 if self.batteryLevelAbovePercent(
                         self.BATTERY_SHUTDOWN_THRESHOLD_PERC):
                     logging.debug("Battery above warning level")
-                    # If we have a pending shutdown, cancel it and blank
-                    #  the display to hide the low battery warning
+                    # If we have a pending shutdown, cancel it and blank the
+                    #  display (at next chance) to hide the low battery warning
                     if self.scheduledShutdownTime:
                         self.scheduledShutdownTime = 0
-                        with self.curPageLock:
-                            self.curPage = self.blank_page
-                            self.curPage.draw_page()
+                        self.displayPowerOffTime = 0
                 else:
                     logging.debug("Battery below warning level")
                     # Schedule a shutdown time if we don't already have one
