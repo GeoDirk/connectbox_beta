@@ -41,7 +41,7 @@ class AbstractHAT:
     PIN_LED = PA6 = 12
 
     def __init__(self):
-        pass
+        GPIO.setup(self.PIN_LED, GPIO.OUT)
 
     @classmethod
     def shutdownDevice(cls):
@@ -52,6 +52,16 @@ class AbstractHAT:
         logging.debug("Triggering device shutdown based on edge detection "
                       "of GPIO %s.", channel)
         self.shutdownDevice()
+
+    def blinkLED(self, times, flashDelay=0.3):
+        for _ in range(0, times):
+            GPIO.output(self.PIN_LED, GPIO.HIGH)
+            time.sleep(flashDelay)
+            GPIO.output(self.PIN_LED, GPIO.LOW)
+            time.sleep(flashDelay)
+
+    def solidLED(self):
+        GPIO.output(self.PIN_LED, GPIO.LOW)
 
 
 class DummyHAT(AbstractHAT):
@@ -72,7 +82,6 @@ class q1y2018HAT(AbstractHAT):
 
     def __init__(self):
         logging.info("Initializing Pins")
-        GPIO.setup(self.PIN_LED, GPIO.OUT)
         GPIO.setup(self.PIN_VOLT_3_0, GPIO.IN)
         GPIO.setup(self.PIN_VOLT_3_45, GPIO.IN)
         GPIO.setup(self.PIN_VOLT_3_71, GPIO.IN)
@@ -92,16 +101,6 @@ class q1y2018HAT(AbstractHAT):
         #  means the software (and thus the board) is consuming lots of CPU
         #  and thus the charge rate is slower.
         super().__init__()
-
-    def blinkLED(self, times, flashDelay=0.3):
-        for _ in range(0, times):
-            GPIO.output(self.PIN_LED, GPIO.HIGH)
-            time.sleep(flashDelay)
-            GPIO.output(self.PIN_LED, GPIO.LOW)
-            time.sleep(flashDelay)
-
-    def solidLED(self):
-        GPIO.output(self.PIN_LED, GPIO.LOW)
 
     def mainLoop(self):
         """
@@ -359,7 +358,6 @@ class q3y2018HAT(OledHAT):
     PIN_R_BUTTON = PG8 = 16
 
     def __init__(self):
-        GPIO.setup(self.PIN_LED, GPIO.OUT)
         GPIO.setup(self.PIN_L_BUTTON, GPIO.IN)
         GPIO.setup(self.PIN_M_BUTTON, GPIO.IN)
         GPIO.setup(self.PIN_R_BUTTON, GPIO.IN)
@@ -396,7 +394,6 @@ class q4y2018HAT(OledHAT):
     PIN_AXP_INTERRUPT_LINE = PG8 = 16
 
     def __init__(self):
-        GPIO.setup(self.PIN_LED, GPIO.OUT)
         GPIO.setup(self.PIN_L_BUTTON, GPIO.IN)
         GPIO.setup(self.PIN_R_BUTTON, GPIO.IN)
         GPIO.setup(self.PIN_AXP_INTERRUPT_LINE, GPIO.IN)
