@@ -219,13 +219,15 @@ class OledHAT(Axp209HAT):
         # This is set in the start of the main loop anyway, but let's make
         #  sure it's defined for clarity's sake in the constructor
         self.curPage = self.STARTING_PAGE_INDEX
-        # set an OLED display timeout.
-        # While this is read and written from both callback threads and the
-        #  main loop, there's no TOCTOU race condition because we're only
-        #  ever setting an absolute value rather than incrementing i.e.
-        #  we're not referencing the old value
-        self.displayPowerOffTime = time.time() + self.DISPLAY_TIMEOUT_SECS
         super().__init__()
+        # draw the connectbox logo
+        self.draw_logo()
+        # Blank the screen 3 seconds after showing the logo - that's long
+        #  enough. While displayPowerOffTime is read and written from both
+        #  callback threads and the main loop, there's no TOCTOU race
+        #  condition because we're only ever setting an absolute value rather
+        #  than incrementing i.e. we're not referencing the old value
+        self.displayPowerOffTime = time.time() + 3
 
     def draw_logo(self):
         dir_path = os.path.dirname(os.path.abspath(__file__))
@@ -293,22 +295,13 @@ class OledHAT(Axp209HAT):
         self.displayPowerOffTime = time.time() + self.DISPLAY_TIMEOUT_SECS
 
     def mainLoop(self):
-        # draw the connectbox logo
-        self.draw_logo()
-        time.sleep(3)
-
-        # blank the screen given we've shown the logo for long enough
-        with self.curPageLock:
-            self.curPage = self.blank_page
-            self.curPage.draw_page()
-        # loop through the buttons looking for changes
-        # and check the battery state
         while True:
             if time.time() > self.displayPowerOffTime:
                 # Power off the display
                 if self.curPage != self.blank_page:
-                    self.curPage = self.blank_page
-                    self.curPage.draw_page()
+                    with self.curPageLock:
+                        self.curPage = self.blank_page
+                        self.curPage.draw_page()
 
             if time.time() > self.nextBatteryCheckTime and \
                     self.axp.battery_exists:
