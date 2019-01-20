@@ -43,6 +43,10 @@ class AbstractHAT:
 
     def __init__(self):
         GPIO.setup(self.PIN_LED, GPIO.OUT)
+        # All HATs should turn on their LED on startup. Doing it in the base
+        #  class constructor allows us the main loop to focus on transitions
+        #  and not worry about initial state (and thus be simpler)
+        self.solidLED()
 
     @classmethod
     def shutdownDevice(cls):
