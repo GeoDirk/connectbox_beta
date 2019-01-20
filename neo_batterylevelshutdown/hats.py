@@ -69,7 +69,7 @@ class AbstractHAT:
         GPIO.output(self.PIN_LED, GPIO.LOW)
 
 
-class DummyHAT(AbstractHAT):
+class DummyHAT:
 
     # pylint: disable=no-self-use
     # This is a standard interface - it's ok not to use self for a dummy impl
