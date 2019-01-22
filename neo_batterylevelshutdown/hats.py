@@ -432,9 +432,14 @@ class q4y2018HAT(OledHAT):
         hexval = self.axp.bus.read_byte_data(AXP209_ADDRESS, 0x32)
         hexval = hexval | 0x03
         self.axp.bus.write_byte_data(AXP209_ADDRESS, 0x32, hexval)
+        # Set LEVEL2 voltage i.e. 3.0V
+        self.axp.bus.write_byte_data(AXP209_ADDRESS, 0x3B, 0x18)
 
         # Enable interrupts when battery goes below LEVEL2 or when
         #  N_OE (the power switch) goes high
+        # Note that the axp209 will do a shutdown based on register 0x31[2:0]
+        #  which is set to 2.9V by default, and as we're triggering a shutdown
+        #  based on LEVEL2 that mechanism should never be necessary
         self.axp.bus.write_byte_data(AXP209_ADDRESS, 0x43, 0x41)
         # We've masked all other interrupt sources for the AXP interrupt line
         #  so the desired action here is always to shutdown
