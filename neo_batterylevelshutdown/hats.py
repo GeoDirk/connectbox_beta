@@ -6,18 +6,8 @@ import os
 import os.path
 import sys
 import time
-import threading
 from axp209 import AXP209, AXP209_ADDRESS
-from PIL import Image
 import RPi.GPIO as GPIO  # pylint: disable=import-error
-from .HAT_Utilities import get_device
-from . import page_none
-from . import page_main
-from . import page_battery
-from . import page_info
-from . import page_stats
-from . import page_memory
-from . import page_battery_low
 
 
 @contextmanager
@@ -42,7 +32,9 @@ class BasePhysicalHAT:
     PIN_LED = PA6 = 12
     LED_CYCLE_TIME_SECS = 5
 
-    def __init__(self):
+    # pylint: disable=unused-argument
+    # This is a standard interface - it's ok not to use
+    def __init__(self, displayClass):
         GPIO.setup(self.PIN_LED, GPIO.OUT)
         # All HATs should turn on their LED on startup. Doing it in the base
         #  class constructor allows us the main loop to focus on transitions
@@ -76,6 +68,9 @@ class BasePhysicalHAT:
 
 class DummyHAT:
 
+    def __init__(self, displayClass):
+        pass
+
     # pylint: disable=no-self-use
     # This is a standard interface - it's ok not to use self for a dummy impl
     def mainLoop(self):
@@ -90,7 +85,7 @@ class q1y2018HAT(BasePhysicalHAT):
     PIN_VOLT_3_71 = PG8 = 16
     PIN_VOLT_3_84 = PG9 = 18
 
-    def __init__(self):
+    def __init__(self, displayClass):
         logging.info("Initializing Pins")
         GPIO.setup(self.PIN_VOLT_3_0, GPIO.IN)
         GPIO.setup(self.PIN_VOLT_3_45, GPIO.IN)
@@ -110,7 +105,7 @@ class q1y2018HAT(BasePhysicalHAT):
         #  but there are also some falling) at a rate of tens per second which
         #  means the software (and thus the board) is consuming lots of CPU
         #  and thus the charge rate is slower.
-        super().__init__()
+        super().__init__(displayClass)
 
     def mainLoop(self):
         """
@@ -151,11 +146,18 @@ class Axp209HAT(BasePhysicalHAT):
     MIN_BATTERY_THRESHOLD_PERC_DOUBLE_FLASH = 3  # Parity with PIN_VOLT_3_45
     BATTERY_WARNING_THRESHOLD_PERC = MIN_BATTERY_THRESHOLD_PERC_DOUBLE_FLASH
     BATTERY_SHUTDOWN_THRESHOLD_PERC = 1
+    # possibly should be moved elsewhere
+    DISPLAY_TIMEOUT_SECS = 20
 
-    def __init__(self):
+    def __init__(self, displayClass):
         self.axp = AXP209()
-        # no shutdown currently scheduled
-        self.scheduledShutdownTime = 0
+        self.display = displayClass(self.axp)
+        # Blank the screen 3 seconds after showing the logo - that's long
+        #  enough. While displayPowerOffTime is read and written from both
+        #  callback threads and the main loop, there's no TOCTOU race
+        #  condition because we're only ever setting an absolute value rather
+        #  than incrementing i.e. we're not referencing the old value
+        self.displayPowerOffTime = time.time() + 3
         # If we have a battery, perform a level check at our first chance but
         #  if we don't, never schedule the battery check (this assumes that
         #  the battery will never be plugged in after startup, which is a
@@ -165,7 +167,7 @@ class Axp209HAT(BasePhysicalHAT):
         else:
             # Never schedule it...
             self.nextBatteryCheckTime = sys.maxsize
-        super().__init__()
+        super().__init__(displayClass)
 
     def batteryLevelAbovePercent(self, level):
         logging.debug("Battery Level: %s%%", self.axp.battery_gauge)
@@ -191,131 +193,17 @@ class Axp209HAT(BasePhysicalHAT):
         #  yet been shutdown, so flash three times
         self.blinkLED(times=3)
 
-    def mainLoop(self):
-        while True:
-            with min_execution_time(min_time_secs=self.LED_CYCLE_TIME_SECS):
-                # Give a rough idea of battery capacity based on the LEDs
-                self.updateLEDState()
-                # Check battery and possibly shutdown
-                # Do this less frequently than updating LEDs. We could do
-                #  these checks more frequently if we wanted to - the battery
-                #  impact is probably minimal but that would mean we need to
-                #  check for whether the battery is connected on each loop so
-                #  readability doesn't necessarily improve
-                if time.time() > self.nextBatteryCheckTime:
-                    if not self.batteryLevelAbovePercent(
-                            self.BATTERY_SHUTDOWN_THRESHOLD_PERC):
-                        self.shutdownDevice()
-
-                    self.nextBatteryCheckTime = \
-                        time.time() + self.BATTERY_CHECK_FREQUENCY_SECS
-
-
-class OledHAT(Axp209HAT):
-
-    DISPLAY_TIMEOUT_SECS = 20
-    # What to show after startup and blank screen
-    STARTING_PAGE_INDEX = 0  # the main page
-
-    def __init__(self):
-        # Can't delegate the axp209 setup to the parent constructor because
-        #  we need it now.
-        self.axp = AXP209()
-        self.display_device = get_device()
-        self.blank_page = page_none.PageBlank(self.display_device)
-        self.low_battery_page = \
-            page_battery_low.PageBatteryLow(self.display_device)
-        self.pages = [
-            page_main.PageMain(self.display_device, self.axp),
-            page_info.PageInfo(self.display_device),
-            page_battery.PageBattery(self.display_device, self.axp),
-            page_memory.PageMemory(self.display_device),
-            page_stats.PageStats(self.display_device, 'hour', 1),
-            page_stats.PageStats(self.display_device, 'hour', 2),
-            page_stats.PageStats(self.display_device, 'day', 1),
-            page_stats.PageStats(self.display_device, 'day', 2),
-            page_stats.PageStats(self.display_device, 'week', 1),
-            page_stats.PageStats(self.display_device, 'week', 2),
-            page_stats.PageStats(self.display_device, 'month', 1),
-            page_stats.PageStats(self.display_device, 'month', 2),
-        ]
-        # callbacks run in another thread, so we need to lock access to the
-        #  current page variable as it can be modified from the main loop
-        #  and from callbacks
-        self.curPageLock = threading.Lock()
-        self.curPage = self.STARTING_PAGE_INDEX
-        super().__init__()
-        # draw the connectbox logo
-        self.draw_logo()
-        # Blank the screen 3 seconds after showing the logo - that's long
-        #  enough. While displayPowerOffTime is read and written from both
-        #  callback threads and the main loop, there's no TOCTOU race
-        #  condition because we're only ever setting an absolute value rather
-        #  than incrementing i.e. we're not referencing the old value
-        self.displayPowerOffTime = time.time() + 3
-
-    def draw_logo(self):
-        dir_path = os.path.dirname(os.path.abspath(__file__))
-        img_path = dir_path + '/assets/connectbox_logo.png'
-        logo = Image.open(img_path).convert("RGBA")
-        fff = Image.new(logo.mode, logo.size, (255,) * 4)
-        background = Image.new("RGBA", self.display_device.size, "black")
-        posn = ((self.display_device.width - logo.width) // 2, 0)
-        img = Image.composite(logo, fff, logo)
-        background.paste(img, posn)
-        self.display_device.display(
-            background.convert(self.display_device.mode)
-        )
-
     def moveForward(self, channel):
         """callback for use on button press"""
-        with self.curPageLock:
-            logging.debug("Processing press on GPIO %s. Current page is %s",
-                          channel, self.curPage)
-            if self.curPage not in self.pages:
-                # Always start with the starting page if the screen went off
-                #  or if we were showing the low battery page
-                self.curPage = self.pages[self.STARTING_PAGE_INDEX]
-            else:
-                # move forward in the page list
-                # If we're at the end of the page list, go to the start
-                if self.curPage == self.pages[-1]:
-                    self.curPage = self.pages[0]
-                else:
-                    self.curPage = \
-                        self.pages[self.pages.index(self.curPage) + 1]
-
-            # draw the page while holding the lock, so that it doesn't change
-            #  underneath us
-            self.curPage.draw_page()
-            logging.debug("Transitioned to page %s", self.curPage)
-
+        logging.debug("Processing press on GPIO %s (move forward)", channel)
+        self.display.moveForward()
         # reset the display power off time
         self.displayPowerOffTime = time.time() + self.DISPLAY_TIMEOUT_SECS
 
     def moveBackward(self, channel):
         """callback for use on button press"""
-        with self.curPageLock:
-            logging.debug("Processing press on GPIO %s. Current page is %s",
-                          channel, self.curPage)
-            if self.curPage not in self.pages:
-                # Always start with the starting page if the screen went off
-                #  or if we were showing the low battery page
-                self.curPage = self.pages[self.STARTING_PAGE_INDEX]
-            else:
-                # move backwards in the page list
-                # If we're at the start of the page list, go to the start
-                if self.curPage == self.pages[0]:
-                    self.curPage = self.pages[-1]
-                else:
-                    self.curPage = \
-                        self.pages[self.pages.index(self.curPage) - 1]
-
-            # draw the page while holding the lock, so that it doesn't change
-            #  underneath us
-            self.curPage.draw_page()
-            logging.debug("Transitioned to page %s", self.curPage)
-
+        logging.debug("Processing press on GPIO %s (move backward)", channel)
+        self.display.moveBackward()
         # reset the display power off time
         self.displayPowerOffTime = time.time() + self.DISPLAY_TIMEOUT_SECS
 
@@ -324,10 +212,7 @@ class OledHAT(Axp209HAT):
             with min_execution_time(min_time_secs=self.LED_CYCLE_TIME_SECS):
                 # Perhaps power off the display
                 if time.time() > self.displayPowerOffTime:
-                    if self.curPage != self.blank_page:
-                        with self.curPageLock:
-                            self.curPage = self.blank_page
-                            self.curPage.draw_page()
+                    self.display.powerOffDisplay()
 
                 # Check battery and possibly shutdown or show low battery page
                 # Do this less frequently than updating LEDs. We could do
@@ -343,22 +228,17 @@ class OledHAT(Axp209HAT):
                     if self.batteryLevelAbovePercent(
                             self.BATTERY_WARNING_THRESHOLD_PERC):
                         logging.debug("Battery above warning level")
-                        # Hide the low battery warning (at the next chance), if
-                        #  we're currently showing it
-                        if self.curPage == self.low_battery_page:
-                            self.displayPowerOffTime = 0
+                        # Hide the low battery warning, if we're currently
+                        #  showing it
+                        self.display.hideLowBatteryWarning()
                     else:
                         logging.debug("Battery below warning level")
-                        # show the low battery warning, if we're not currently
-                        #  showing it.
-                        if self.curPage != self.low_battery_page:
-                            # Don't blank the display while we're in the
-                            #  warning period so the low battery warning shows
-                            #  to the end
-                            self.displayPowerOffTime = sys.maxsize
-                            with self.curPageLock:
-                                self.curPage = self.low_battery_page
-                                self.curPage.draw_page()
+                        # show (or keep showing) the low battery warning page
+                        self.display.showLowBatteryWarning()
+                        # Don't blank the display while we're in the
+                        #  warning period so the low battery warning shows
+                        #  to the end
+                        self.displayPowerOffTime = sys.maxsize
 
                     self.nextBatteryCheckTime = \
                         time.time() + self.BATTERY_CHECK_FREQUENCY_SECS
@@ -367,14 +247,14 @@ class OledHAT(Axp209HAT):
                 self.updateLEDState()
 
 
-class q3y2018HAT(OledHAT):
+class q3y2018HAT(Axp209HAT):
 
     # Pin numbers from https://github.com/auto3000/RPi.GPIO_NP
     PIN_L_BUTTON = PA1 = 22
     PIN_M_BUTTON = PG7 = 10
     PIN_R_BUTTON = PG8 = 16
 
-    def __init__(self):
+    def __init__(self, displayClass):
         GPIO.setup(self.PIN_L_BUTTON, GPIO.IN)
         GPIO.setup(self.PIN_M_BUTTON, GPIO.IN)
         GPIO.setup(self.PIN_R_BUTTON, GPIO.IN)
@@ -387,22 +267,17 @@ class q3y2018HAT(OledHAT):
         GPIO.add_event_detect(self.PIN_R_BUTTON, GPIO.FALLING,
                               callback=self.powerOffDisplay,
                               bouncetime=125)
-        super().__init__()
+        super().__init__(displayClass)
 
     def powerOffDisplay(self, channel):
         """Turn off the display"""
-        with self.curPageLock:
-            logging.debug("Processing press on GPIO %s. Current page is %s",
-                          channel, self.curPage)
-            self.curPage = self.blank_page
-            # draw the page while holding the lock, so that it doesn't change
-            #  underneath us
-            self.curPage.draw_page()
-            logging.debug("Transitioned to page %s", self.curPage)
+        logging.debug("Processing press on GPIO %s (poweroff).", channel)
+        self.display.powerOffDisplay()
         # The display is already off... no need to set the power off time
+        #  like we do in other callbacks
 
 
-class q4y2018HAT(OledHAT):
+class q4y2018HAT(Axp209HAT):
 
     # Q4Y2018 - AXP209/OLED (Anker) Unit run specific pins
     # Pin numbers from https://github.com/auto3000/RPi.GPIO_NP
@@ -410,7 +285,7 @@ class q4y2018HAT(OledHAT):
     PIN_R_BUTTON = PG7 = 10
     PIN_AXP_INTERRUPT_LINE = PG8 = 16
 
-    def __init__(self):
+    def __init__(self, displayClass):
         GPIO.setup(self.PIN_L_BUTTON, GPIO.IN)
         GPIO.setup(self.PIN_R_BUTTON, GPIO.IN)
         GPIO.setup(self.PIN_AXP_INTERRUPT_LINE, GPIO.IN)
@@ -420,7 +295,7 @@ class q4y2018HAT(OledHAT):
         GPIO.add_event_detect(self.PIN_R_BUTTON, GPIO.FALLING,
                               callback=self.moveBackward,
                               bouncetime=125)
-        super().__init__()
+        super().__init__(displayClass)
 
         # Clear all IRQ Enable Control Registers. We may subsequently
         #  enable interrupts on certain actions below, but let's start

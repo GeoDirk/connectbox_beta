@@ -8,10 +8,11 @@ import axp209
 import click
 import RPi.GPIO as GPIO  # pylint: disable=import-error
 import neo_batterylevelshutdown.hats as hats
+import neo_batterylevelshutdown.displays as displays
 from .HAT_Utilities import get_device
 
 
-def getHATVersion():
+def getHATClass():
     GPIO.setup(hats.BasePhysicalHAT.PA6, GPIO.IN)
     # As PA6 is set to be a pulldown resistor on system startup by the
     #  pa6-pulldown.service, and the HAT sets PA6 HIGH, so we check the
@@ -29,13 +30,6 @@ def getHATVersion():
         axp = axp209.AXP209()
         axp.close()
         # AXP209 found... we have HAT from Q3Y2018 or later
-        try:
-            # See if we can find an OLED
-            get_device()
-        except OSError:
-            # No OLED. This is a standard Axp209 HAT
-            logging.info("OLED-less Axp209 HAT Detected")
-            return hats.Axp209HAT
         # Test PA1... LOW => Q4Y2018; HIGH => Q3Y2018
         GPIO.setup(hats.q3y2018HAT.PA1, GPIO.IN)
         if GPIO.input(hats.q3y2018HAT.PA1) == GPIO.LOW:
@@ -54,6 +48,18 @@ def getHATVersion():
     return hats.DummyHAT
 
 
+def getDisplayClass():
+    try:
+        # See if we can find an OLED
+        get_device()
+        logging.info("Found OLED")
+        return displays.OLED
+    except OSError:
+        # No OLED. This is a standard Axp209 HAT
+        logging.info("No OLED detected")
+        return displays.DummyOLED
+
+
 @click.command()
 @click.option('-v', '--verbose', is_flag=True, default=False)
 def main(verbose):
@@ -63,10 +69,11 @@ def main(verbose):
         logging.basicConfig(level=logging.INFO)
 
     GPIO.setmode(GPIO.BOARD)
-    hat = getHATVersion()
+    hatClass = getHATClass()
+    displayClass = getDisplayClass()
     logging.info("starting main loop")
     try:
-        hat().mainLoop()
+        hatClass(displayClass).mainLoop()
     except KeyboardInterrupt:
         GPIO.cleanup()       # clean up GPIO on CTRL+C exit
     GPIO.cleanup()           # clean up GPIO on normal exit
