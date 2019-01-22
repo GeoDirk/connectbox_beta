@@ -167,6 +167,23 @@ class Axp209HAT(BasePhysicalHAT):
         else:
             # Never schedule it...
             self.nextBatteryCheckTime = sys.maxsize
+
+        # Clear all IRQ Enable Control Registers. We may subsequently
+        #  enable interrupts on certain actions below, but let's start
+        #  with a known state for all registers.
+        for ec_reg in (0x40, 0x41, 0x42, 0x43, 0x44):
+            self.axp.bus.write_byte_data(AXP209_ADDRESS, ec_reg, 0x00)
+
+        # Now all interrupts are disabled, clear the previous state
+        self.clearAllPreviousInterrupts()
+
+        # shutdown delay time to 3 secs (they delay before axp209 yanks power
+        #  when it determines a shutdown is required) (default is 2 sec)
+        hexval = self.axp.bus.read_byte_data(AXP209_ADDRESS, 0x32)
+        hexval = hexval | 0x03
+        self.axp.bus.write_byte_data(AXP209_ADDRESS, 0x32, hexval)
+        # Set LEVEL2 voltage i.e. 3.0V
+        self.axp.bus.write_byte_data(AXP209_ADDRESS, 0x3B, 0x18)
         super().__init__(displayClass)
 
     def batteryLevelAbovePercent(self, level):
@@ -206,6 +223,26 @@ class Axp209HAT(BasePhysicalHAT):
         self.display.moveBackward()
         # reset the display power off time
         self.displayPowerOffTime = time.time() + self.DISPLAY_TIMEOUT_SECS
+
+    def clearAllPreviousInterrupts(self):
+        """
+        Reset interrupt state by writing a 1 to all bits of the state regs
+
+        From the AXP209 datasheet:
+        When certain events occur, AXP209 will inform the Host by pulling down
+        the IRQ interrupt line, and the interrupt state will be stored in
+        interrupt state registers (See registers REG48H, REG49H, REG4AH, REG4BH
+        and REG4CH). The interrupt can be cleared by writing 1 to corresponding
+        state register bit.
+
+        Note that 0x4B is the only one that's enabled at this stage, but let's
+        be thorough so that we don't need to change this if we start using the
+        others.
+        """
+        # (IRQ status register 1-5)
+        for stat_reg in (0x48, 0x49, 0x4A, 0x4B, 0x4C):
+            self.axp.bus.write_byte_data(AXP209_ADDRESS, stat_reg, 0xFF)
+        logging.debug("IRQ records cleared")
 
     def mainLoop(self):
         while True:
@@ -297,23 +334,9 @@ class q4y2018HAT(Axp209HAT):
                               bouncetime=125)
         super().__init__(displayClass)
 
-        # Clear all IRQ Enable Control Registers. We may subsequently
-        #  enable interrupts on certain actions below, but let's start
-        #  with a known state for all registers.
-        for ec_reg in (0x40, 0x41, 0x42, 0x43, 0x44):
-            self.axp.bus.write_byte_data(AXP209_ADDRESS, ec_reg, 0x00)
-
-        # Now all interrupts are disabled, clear the previous state
-        self.clearAllPreviousInterrupts()
-
-        # shutdown delay time to 3 secs (they delay before axp209 yanks power
-        #  when it determines a shutdown is required) (default is 2 sec)
-        hexval = self.axp.bus.read_byte_data(AXP209_ADDRESS, 0x32)
-        hexval = hexval | 0x03
-        self.axp.bus.write_byte_data(AXP209_ADDRESS, 0x32, hexval)
-        # Set LEVEL2 voltage i.e. 3.0V
-        self.axp.bus.write_byte_data(AXP209_ADDRESS, 0x3B, 0x18)
-
+        # We only enable interrupts on this HAT, rather than in the superclass
+        #  because not all HATs with AXP209s have a line that we can use to
+        #  detect the interrupt
         # Enable interrupts when battery goes below LEVEL2 or when
         #  N_OE (the power switch) goes high
         # Note that the axp209 will do a shutdown based on register 0x31[2:0]
@@ -324,23 +347,3 @@ class q4y2018HAT(Axp209HAT):
         #  so the desired action here is always to shutdown
         GPIO.add_event_detect(self.PIN_AXP_INTERRUPT_LINE, GPIO.FALLING,
                               callback=self.shutdownDeviceCallback)
-
-    def clearAllPreviousInterrupts(self):
-        """
-        Reset interrupt state by writing a 1 to all bits of the state regs
-
-        From the AXP209 datasheet:
-        When certain events occur, AXP209 will inform the Host by pulling down
-        the IRQ interrupt line, and the interrupt state will be stored in
-        interrupt state registers (See registers REG48H, REG49H, REG4AH, REG4BH
-        and REG4CH). The interrupt can be cleared by writing 1 to corresponding
-        state register bit.
-
-        Note that 0x4B is the only one that's enabled at this stage, but let's
-        be thorough so that we don't need to change this if we start using the
-        others.
-        """
-        # (IRQ status register 1-5)
-        for stat_reg in (0x48, 0x49, 0x4A, 0x4B, 0x4C):
-            self.axp.bus.write_byte_data(AXP209_ADDRESS, stat_reg, 0xFF)
-        logging.debug("IRQ records cleared")
