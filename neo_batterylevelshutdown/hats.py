@@ -51,6 +51,10 @@ class BasePhysicalHAT:
 
     @classmethod
     def shutdownDevice(cls):
+        # Turn off the LED, as some people associate that with wifi being
+        #  active (the HAT can stay powered after shutdown under some
+        #  circumstances)
+        GPIO.output(cls.PIN_LED, GPIO.HIGH)
         logging.info("Exiting for Shutdown")
         os.system("shutdown now")
 
