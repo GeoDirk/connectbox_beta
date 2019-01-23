@@ -187,8 +187,14 @@ class Axp209HAT(BasePhysicalHAT):
         super().__init__(displayClass)
 
     def batteryLevelAbovePercent(self, level):
+        # Battery guage of -1 means that the battery is not attached.
+        # Given that amounts to infinite power because a charger is
+        #  attached, or the device has found a mysterious alternative
+        #  power source, let's say that the level is always above if
+        #  we have a negative battery_gauge
         logging.debug("Battery Level: %s%%", self.axp.battery_gauge)
-        return self.axp.battery_gauge > level
+        return self.axp.battery_gauge < 0 or \
+            self.axp.battery_gauge > level
 
     def updateLEDState(self):
         if self.batteryLevelAbovePercent(
