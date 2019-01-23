@@ -14,7 +14,7 @@ from . import page_memory
 from . import page_battery_low
 
 
-class DummyOLED:
+class DummyDisplay:
 
     def __init__(self, powerManagementDevice):
         pass
@@ -134,7 +134,6 @@ class OLED:
             self.powerOffDisplay()
 
     def powerOffDisplay(self):
-        logging.debug("In powerOffDisplay")
         if self._curPage == self.blank_page:
             # nothing to do
             return

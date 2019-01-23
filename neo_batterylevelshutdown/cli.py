@@ -57,7 +57,7 @@ def getDisplayClass():
     except OSError:
         # No OLED. This is a standard Axp209 HAT
         logging.info("No OLED detected")
-        return displays.DummyOLED
+        return displays.DummyDisplay
 
 
 @click.command()
