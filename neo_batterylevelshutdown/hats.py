@@ -92,6 +92,10 @@ class q1y2018HAT(BasePhysicalHAT):
         GPIO.setup(self.PIN_VOLT_3_71, GPIO.IN)
         GPIO.setup(self.PIN_VOLT_3_84, GPIO.IN)
         logging.info("Pin initialization complete")
+        # Run parent constructors before adding event detection
+        #  as some callbacks require objects only initialised
+        #  in parent constructors
+        super().__init__(displayClass)
         # The circuitry on the HAT triggers a shutdown of the 5V converter
         #  once battery voltage goes below 3.0V. It gives an 8 second grace
         #  period before yanking the power, so if we have a falling edge on
@@ -105,7 +109,6 @@ class q1y2018HAT(BasePhysicalHAT):
         #  but there are also some falling) at a rate of tens per second which
         #  means the software (and thus the board) is consuming lots of CPU
         #  and thus the charge rate is slower.
-        super().__init__(displayClass)
 
     def mainLoop(self):
         """
@@ -301,6 +304,10 @@ class q3y2018HAT(Axp209HAT):
         GPIO.setup(self.PIN_L_BUTTON, GPIO.IN)
         GPIO.setup(self.PIN_M_BUTTON, GPIO.IN)
         GPIO.setup(self.PIN_R_BUTTON, GPIO.IN)
+        # Run parent constructors before adding event detection
+        #  as some callbacks require objects only initialised
+        #  in parent constructors
+        super().__init__(displayClass)
         GPIO.add_event_detect(self.PIN_L_BUTTON, GPIO.FALLING,
                               callback=self.moveForward,
                               bouncetime=125)
@@ -310,7 +317,6 @@ class q3y2018HAT(Axp209HAT):
         GPIO.add_event_detect(self.PIN_R_BUTTON, GPIO.FALLING,
                               callback=self.powerOffDisplay,
                               bouncetime=125)
-        super().__init__(displayClass)
 
     def powerOffDisplay(self, channel):
         """Turn off the display"""
@@ -332,13 +338,16 @@ class q4y2018HAT(Axp209HAT):
         GPIO.setup(self.PIN_L_BUTTON, GPIO.IN)
         GPIO.setup(self.PIN_R_BUTTON, GPIO.IN)
         GPIO.setup(self.PIN_AXP_INTERRUPT_LINE, GPIO.IN)
+        # Run parent constructors before adding event detection
+        #  as some callbacks require objects only initialised
+        #  in parent constructors
+        super().__init__(displayClass)
         GPIO.add_event_detect(self.PIN_L_BUTTON, GPIO.FALLING,
                               callback=self.moveForward,
                               bouncetime=125)
         GPIO.add_event_detect(self.PIN_R_BUTTON, GPIO.FALLING,
                               callback=self.moveBackward,
                               bouncetime=125)
-        super().__init__(displayClass)
 
         # We only enable interrupts on this HAT, rather than in the superclass
         #  because not all HATs with AXP209s have a line that we can use to
