@@ -92,10 +92,6 @@ class q1y2018HAT(BasePhysicalHAT):
         GPIO.setup(self.PIN_VOLT_3_71, GPIO.IN)
         GPIO.setup(self.PIN_VOLT_3_84, GPIO.IN)
         logging.info("Pin initialization complete")
-        # Run parent constructors before adding event detection
-        #  as some callbacks require objects only initialised
-        #  in parent constructors
-        super().__init__(displayClass)
         # The circuitry on the HAT triggers a shutdown of the 5V converter
         #  once battery voltage goes below 3.0V. It gives an 8 second grace
         #  period before yanking the power, so if we have a falling edge on
@@ -109,6 +105,7 @@ class q1y2018HAT(BasePhysicalHAT):
         #  but there are also some falling) at a rate of tens per second which
         #  means the software (and thus the board) is consuming lots of CPU
         #  and thus the charge rate is slower.
+        super().__init__(displayClass)
 
     def mainLoop(self):
         """
@@ -151,6 +148,10 @@ class Axp209HAT(BasePhysicalHAT):
     BATTERY_SHUTDOWN_THRESHOLD_PERC = 1
     # possibly should be moved elsewhere
     DISPLAY_TIMEOUT_SECS = 20
+    CHECK_PRESS_BUSY = False # Prevent dual usage of the checkPressTime function
+    CHECK_PRESS_TIMEOUT_SEC = 0.25 # Prevent bouncing of the function
+    CHECK_PRESS_CLEARED_TIME = time.time() # When was it last cleared
+    CHECK_PRESS_THRESHOLD_SEC = 3 # Threshold for what qualifies as a long press
 
     def __init__(self, displayClass):
         self.axp = AXP209()
@@ -189,6 +190,9 @@ class Axp209HAT(BasePhysicalHAT):
         self.axp.bus.write_byte_data(AXP209_ADDRESS, 0x3B, 0x18)
         super().__init__(displayClass)
 
+        # A double check that this is set to False when starting up
+        self.CHECK_PRESS_BUSY = False
+
     def batteryLevelAbovePercent(self, level):
         # Battery guage of -1 means that the battery is not attached.
         # Given that amounts to infinite power because a charger is
@@ -219,15 +223,84 @@ class Axp209HAT(BasePhysicalHAT):
         #  yet been shutdown, so flash three times
         self.blinkLED(times=3)
 
+    def checkPressTime(self, channel):
+        '''
+        This method was created to allow for a long double press of the buttons.  Previously, we only
+        had to deal with a single press of a single button.
+
+        This method requires two pins which are contained in the USABLE_BUTTONS list constant.  The will be used for
+        two things.  One to determine which is the non-button pressed, this is done by comparing the channel
+        passed in to the first item in the list.  If it is not the first item, it must be the second.  Two, if
+         there is no double long press, then the information is used to decide which method applies to which pin.
+         The first item in the list goes to moveForward, the second item goes moveBackward.
+
+         If there is a double long press, we call a swapPages method.
+
+        :param channel: The pin number that has been pressed and thus is registering a 0
+        :return: nothing
+        '''
+
+        # this section is to prevent both buttons calling this method and getting two replies
+        if self.CHECK_PRESS_BUSY:  # if flag is set that means this method is currently being used, so skip
+            return
+        else:
+            # check the amount of time that has passed since it has been cleared and see if it exceeds the timeout
+            # this avoids buttons bouncing triggering this function
+            if time.time() - self.CHECK_PRESS_CLEARED_TIME > self.CHECK_PRESS_TIMEOUT_SEC:
+                self.CHECK_PRESS_BUSY = True # if enough time, proceed and set the BUSY flag
+            else:  # if not enough time, pass
+                return
+
+        # otherChannel is the one that has not been passed in by the parameter list.  We cannot hard code the
+        # values because the different hats use different pin values.
+        otherChannel = self.USABLE_BUTTONS[0] if channel == self.USABLE_BUTTONS[1] else self.USABLE_BUTTONS[1]
+
+        # there are two timers here.  One is for total time the original button was pushed.  The second is for when
+        # the second button was pushed.  The timer gets restarted if the button is not pressed or is released.  The
+        # reason for th e recorder is that if it is not kept, then when you let off the second button it will bounce
+        # and give a false reading.  Here we keep the highest consecutive time it was pushed.
+        startTime = time.time() # time original button is pushed
+        dualStartTime = time.time() # time both buttons were pushed.
+        dualTimeRecorded = 0 # to prevent time being reset when letting off of buttons
+
+        while GPIO.input(channel) == 0:  # While original button is being pressed
+            if GPIO.input(otherChannel) == 1: # move start time up if not pressing other button
+                dualButtonTime = time.time() - dualStartTime # How long were both buttons down?
+                dualTimeRecorded = dualButtonTime if dualButtonTime > dualTimeRecorded else dualTimeRecorded
+                dualStartTime = time.time() # reset start time to now
+
+        # clear the CHECK_PRESS_BUSY flag
+        self.CHECK_PRESS_BUSY = False
+
+        # reset the CHECK_PRESS_CLEARED_TIME to now
+        self.CHECK_PRESS_CLEARED_TIME = time.time()
+
+        buttonTime = time.time() - startTime  # How long was the original button down?
+        if buttonTime < .1:  # Ignore noise
+            pass
+        # if either button is below the press threshold, treat as normal
+        elif  buttonTime < self.CHECK_PRESS_THRESHOLD_SEC or dualTimeRecorded < self.CHECK_PRESS_THRESHOLD_SEC:
+            if channel == self.USABLE_BUTTONS[0]:
+                self.moveForward(channel)
+            else:
+                self.moveBackward(channel)
+        # call switch pages
+        elif buttonTime >= self.CHECK_PRESS_THRESHOLD_SEC:
+            self.switchPages()
+
+    def switchPages(self):
+        """method for use on button press to change display options"""
+        logging.debug("You have now entered, the SwitchPages")
+
     def moveForward(self, channel):
-        """callback for use on button press"""
+        """method for use on button press to cycle display"""
         logging.debug("Processing press on GPIO %s (move forward)", channel)
         self.display.moveForward()
         # reset the display power off time
         self.displayPowerOffTime = time.time() + self.DISPLAY_TIMEOUT_SECS
 
     def moveBackward(self, channel):
-        """callback for use on button press"""
+        """method for use on button press to cycle display"""
         logging.debug("Processing press on GPIO %s (move backward)", channel)
         self.display.moveBackward()
         # reset the display power off time
@@ -299,24 +372,22 @@ class q3y2018HAT(Axp209HAT):
     PIN_L_BUTTON = PA1 = 22
     PIN_M_BUTTON = PG7 = 10
     PIN_R_BUTTON = PG8 = 16
+    USABLE_BUTTONS = [PIN_L_BUTTON, PIN_M_BUTTON] # Used in the checkPressTime method
 
     def __init__(self, displayClass):
         GPIO.setup(self.PIN_L_BUTTON, GPIO.IN)
         GPIO.setup(self.PIN_M_BUTTON, GPIO.IN)
         GPIO.setup(self.PIN_R_BUTTON, GPIO.IN)
-        # Run parent constructors before adding event detection
-        #  as some callbacks require objects only initialised
-        #  in parent constructors
-        super().__init__(displayClass)
         GPIO.add_event_detect(self.PIN_L_BUTTON, GPIO.FALLING,
-                              callback=self.moveForward,
+                              callback=self.checkPressTime,
                               bouncetime=125)
         GPIO.add_event_detect(self.PIN_M_BUTTON, GPIO.FALLING,
-                              callback=self.moveBackward,
+                              callback=self.checkPressTime,
                               bouncetime=125)
         GPIO.add_event_detect(self.PIN_R_BUTTON, GPIO.FALLING,
                               callback=self.powerOffDisplay,
                               bouncetime=125)
+        super().__init__(displayClass)
 
     def powerOffDisplay(self, channel):
         """Turn off the display"""
@@ -333,21 +404,19 @@ class q4y2018HAT(Axp209HAT):
     PIN_L_BUTTON = PG6 = 8
     PIN_R_BUTTON = PG7 = 10
     PIN_AXP_INTERRUPT_LINE = PG8 = 16
+    USABLE_BUTTONS = [PIN_L_BUTTON, PIN_R_BUTTON]  # Used in the checkPressTime method
 
     def __init__(self, displayClass):
         GPIO.setup(self.PIN_L_BUTTON, GPIO.IN)
         GPIO.setup(self.PIN_R_BUTTON, GPIO.IN)
         GPIO.setup(self.PIN_AXP_INTERRUPT_LINE, GPIO.IN)
-        # Run parent constructors before adding event detection
-        #  as some callbacks require objects only initialised
-        #  in parent constructors
-        super().__init__(displayClass)
         GPIO.add_event_detect(self.PIN_L_BUTTON, GPIO.FALLING,
-                              callback=self.moveForward,
+                              callback=self.checkPressTime,
                               bouncetime=125)
         GPIO.add_event_detect(self.PIN_R_BUTTON, GPIO.FALLING,
-                              callback=self.moveBackward,
+                              callback=self.checkPressTime,
                               bouncetime=125)
+        super().__init__(displayClass)
 
         # We only enable interrupts on this HAT, rather than in the superclass
         #  because not all HATs with AXP209s have a line that we can use to
