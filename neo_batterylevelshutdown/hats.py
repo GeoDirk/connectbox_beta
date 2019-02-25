@@ -4,10 +4,13 @@ from contextlib import contextmanager
 import logging
 import os
 import os.path
+import subprocess
+import shutil
 import sys
 import time
 from axp209 import AXP209, AXP209_ADDRESS
 import RPi.GPIO as GPIO  # pylint: disable=import-error
+from .usb import USB
 
 
 @contextmanager
@@ -192,7 +195,7 @@ class Axp209HAT(BasePhysicalHAT):
         # Set LEVEL2 voltage i.e. 3.0V
         self.axp.bus.write_byte_data(AXP209_ADDRESS, 0x3B, 0x18)
         super().__init__(displayClass)
-
+        self.command_to_reference = ''
 
     def batteryLevelAbovePercent(self, level):
         # Battery guage of -1 means that the battery is not attached.
@@ -223,6 +226,49 @@ class Axp209HAT(BasePhysicalHAT):
         # If we're here, we're below the double flash threshold and haven't
         #  yet been shutdown, so flash three times
         self.blinkLED(times=3)
+
+    def executeCommands(self, command):
+        '''
+        This is where we will actually be executing the commands
+
+        :param command: the command we want to execute
+        :return: Nothing
+        '''
+
+        usb = USB()
+        if command == 'copy_from_usb':
+            if not usb.isUsbPresent():
+                self.display.showNoUsbPage()
+                return
+            if not usb.moveMount():
+                self.display.showErrorPage()
+                return
+            if not usb.copyFiles():
+                self.display.showErrorPage()
+                return
+            else:
+                self.display.pageStack = 'success'
+                self.display.showSuccessPage()
+        elif command == 'erase_folder':
+            file_exists = False  # in regards to README.txt file
+            if usb.isUsbPresent():
+                self.display.pageStack = 'error'
+                self.display.showRemoveUsbPage()
+                return
+            if os.path.isfile('/media/usb0/README.txt'):  # keep the default README if possible
+                file_exists = True
+                subprocess.call(['cp', '/media/usb0/README.txt', '/tmp/README.txt'])
+                logging.debug("README.txt moved")
+            shutil.rmtree('/media/usb0/')  # nuke the /media/usb0 directory
+            os.makedirs('/media/usb0')  # recreate the directory
+            logging.debug("FILES NUKED!!!")
+            if file_exists:
+                subprocess.call(['mv', '/tmp/README.txt', '/media/usb0/README.txt'])  # move the README back
+                logging.debug("README.txt returned")
+            logging.debug("Life is good!")
+            self.display.pageStack = 'success'
+            self.display.showSuccessPage()
+
 
     def handleButtonPress(self, channel):
         '''
@@ -262,15 +308,14 @@ class Axp209HAT(BasePhysicalHAT):
         # if either button is below the press threshold, treat as normal
         elif channelTime < self.CHECK_PRESS_THRESHOLD_SEC or dualTime < self.CHECK_PRESS_THRESHOLD_SEC:
             if channel == self.USABLE_BUTTONS[0]:  # this is the left button
-                # if we're on a confirm or error screen, it cancels action
-                if pageStack == 'confirm' or pageStack == 'error':
+                if pageStack in ['confirm', 'error', 'success']: # these conditions return to admin stack
                     self.chooseCancel()
                 else: # anything else, we move to next option
                     self.moveForward(channel)
             else:  # right button
                 if pageStack == 'status':  # standard behavior
                     self.moveBackward(channel)
-                elif pageStack == 'error':  # on error page, both buttons are cancel
+                elif pageStack in ['error', 'success']:  # both conditions return to admin stack
                     self.chooseCancel()
                 else:  # this is an enter key
                     self.chooseEnter(pageStack)
@@ -321,6 +366,7 @@ class Axp209HAT(BasePhysicalHAT):
     def chooseCancel(self):
         """ method for use when cancelling a choice"""
         logging.debug("Choice cancelled")
+        self.command_to_reference = ''  # really don't want to leave this one loaded
         self.display.switchPages()
 
     def chooseEnter(self, pageStack):
@@ -330,13 +376,16 @@ class Axp209HAT(BasePhysicalHAT):
             if self.display.checkIfLastPage():  # this is the exit page so, go back to admin pageStack
                 self.display.switchPages()
             else:
-                self.display.makeChoice()
+                self.command_to_reference = self.display.getAdminPageName()
+                logging.debug("Leaving admin page: {}".format(self.command_to_reference))
+                self.command_to_reference = self.display.getAdminPageName()
                 logging.debug("Confirmed Page shown")
-                self.display.confirmChoice()
-        if pageStack == 'confirm':
+                self.display.showConfirmPage()
+        elif pageStack == 'confirm':
             logging.debug("Choice confirmed")
-            # self.display.executeChoice()
-            self.display.switchPages()
+            self.display.showWaitPage()
+            logging.debug("Waiting Page shown")
+            self.executeCommands(self.command_to_reference)
 
     def switchPages(self):
         """method for use on button press to change display options"""
