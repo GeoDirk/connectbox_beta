@@ -13,6 +13,7 @@
 from datetime import datetime
 import os.path
 import subprocess
+import logging
 import sys
 from PIL import Image, ImageFont, ImageDraw
 from .HAT_Utilities import get_device
@@ -33,6 +34,7 @@ class PageDisplayImage:
 
     def draw_page(self):
         # display a specified impage
+        logging.debug("Showing {}".format(self.imageName))
         dir_path = os.path.dirname(os.path.abspath(__file__))
         img_path = dir_path + '/assets/' + self.imageName
         if not os.path.isfile(img_path):

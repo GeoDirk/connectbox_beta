@@ -235,20 +235,51 @@ class Axp209HAT(BasePhysicalHAT):
         :return: Nothing
         '''
 
+        logging.debug("Execute Command: {}".format(command))
         usb = USB()
+        if command == 'remove_usb':
+            logging.debug("In remove usb page")
+            if usb.isUsbPresent():                          # check to see if usb is inserted
+                logging.debug("USB still present")
+                self.display.showRemoveUsbPage()            # tell them to remove it if so
+                self.display.pageStack = 'removeUsb'        # let our handleButtonPress know what we want
+                self.command_to_reference = 'remove_usb'    # let out executeCommands know what we want
+            else:                                           # if they were good and followed previous instruction
+                logging.debug("USB removed")
+                self.display.pageStack = 'success'          # let out handleButtonPress know
+                self.display.showSuccessPage()              # display our success page
+
         if command == 'copy_from_usb':
-            if not usb.isUsbPresent():
-                self.display.showNoUsbPage()
+            if not usb.isUsbPresent():                  # check to see if usb is inserted
+                self.display.showNoUsbPage()            # if not, alert use as this is an important piece of the puzzle
+                self.display.pageStack = 'error'
+                return                                  # cycle back to menu
+            if not usb.moveMount():             # see if our remount (from /media/usb0 -> /media/usb1) was successful
+                self.display.showErrorPage()    # if not generate error page and exit
+                self.display.pageStack = 'error'
                 return
-            if not usb.moveMount():
-                self.display.showErrorPage()
+            if not usb.checkSpace():            # verify that the usb size is smaller than the available space
+                self.display.showNoSpacePage()  # if not, alert as this is a problem
+                usb.moveMount(curMount='/media/usb1', destMount='/media/usb0')
+                self.display.pageStack = 'error'
                 return
-            if not usb.copyFiles():
-                self.display.showErrorPage()
+            if not usb.copyFiles():                 # see if we were able to copy the files successfully
+                self.display.showErrorPage()        # if not generate error page and exit
+                self.display.pageStack = 'error'
                 return
-            else:
-                self.display.pageStack = 'success'
-                self.display.showSuccessPage()
+            if not usb.unmount('/media/usb1'):      # see if we were able to unmount /media/usb1
+                self.display.showErrorPage()        # if not generate error page and exit
+                self.display.pageStack = 'error'
+                return
+            else:   # if we did successfully unmount /media/usb1
+                if usb.isUsbPresent():  # see if usb is still physically installed, if so, have them remove it
+                    self.display.showRemoveUsbPage()           # if so show the remove usb page
+                    self.display.pageStack = 'removeUsb'       # set this so our handleButtonPress knows what to do
+                    self.command_to_reference = 'remove_usb'   # set this so it will be checked again after button press
+                    return
+                self.display.pageStack = 'success'  # if the usb were removed prior to last usb present check
+                self.display.showSuccessPage()      # display success page
+
         elif command == 'erase_folder':
             file_exists = False  # in regards to README.txt file
             if usb.isUsbPresent():
@@ -259,8 +290,12 @@ class Axp209HAT(BasePhysicalHAT):
                 file_exists = True
                 subprocess.call(['cp', '/media/usb0/README.txt', '/tmp/README.txt'])
                 logging.debug("README.txt moved")
-            shutil.rmtree('/media/usb0/')  # nuke the /media/usb0 directory
-            os.makedirs('/media/usb0')  # recreate the directory
+            for file_object in os.listdir('/media/usb0'):
+                file_object_path = os.path.join('/media/usb0', file_object)
+                if os.path.isfile(file_object_path):
+                    os.unlink(file_object_path)
+                else:
+                    shutil.rmtree(file_object_path)
             logging.debug("FILES NUKED!!!")
             if file_exists:
                 subprocess.call(['mv', '/tmp/README.txt', '/media/usb0/README.txt'])  # move the README back
@@ -273,12 +308,12 @@ class Axp209HAT(BasePhysicalHAT):
     def handleButtonPress(self, channel):
         '''
         The method was created to handle the button press event.  It will get the time buttons pressed
-        and then, based upon other criteria, decide how to control futher events.
+        and then, based upon other criteria, decide how to control further events.
 
         :param channel: The pin number that has been pressed and thus is registering a 0
-        :return: nothing        '''
+        :return: nothing
+        '''
 
-        logging.debug("Handle button press")
         # this section is to prevent both buttons calling this method and getting two replies
         if self.BUTTON_PRESS_BUSY:  # if flag is set that means this method is currently being used, so skip
             return
@@ -287,9 +322,12 @@ class Axp209HAT(BasePhysicalHAT):
             # exceeds the timeout set.  This avoids buttons bouncing triggering this function
             if time.time() - self.BUTTON_PRESS_CLEARED_TIME > self.BUTTON_PRESS_TIMEOUT_SEC:
                 self.BUTTON_PRESS_BUSY = True  # if enough time, proceed and set the BUSY flag
+
             else:  # if not enough time, pass
                 return
 
+        logging.debug("Handle button press")
+        # get time single button was pressed along with the amount of time both buttons were pressed
         channelTime, dualTime = self.checkPressTime(channel)
 
         # clear the CHECK_PRESS_BUSY flag
@@ -298,7 +336,9 @@ class Axp209HAT(BasePhysicalHAT):
         # reset the CHECK_PRESS_CLEARED_TIME to now
         self.BUTTON_PRESS_CLEARED_TIME = time.time()
 
-        pageStack = self.display.pageStack
+        pageStack = self.display.pageStack  # shortcut
+        logging.debug("PAGESTACK: {}".format(pageStack))
+        logging.debug("COMMAND: {}".format(self.command_to_reference))
 
         # this is where we decide what to do with the button press.  ChanelTime is the first button pushed,
         # dualTime is the amount of time both buttons were pushed.
@@ -310,7 +350,9 @@ class Axp209HAT(BasePhysicalHAT):
             if channel == self.USABLE_BUTTONS[0]:  # this is the left button
                 if pageStack in ['confirm', 'error', 'success']: # these conditions return to admin stack
                     self.chooseCancel()
-                else: # anything else, we move to next option
+                elif pageStack in ['removeUsb']: # gonna keep going until they remove the USB stick
+                    self.chooseEnter(pageStack)
+                else: # anything else, we treat as a moveForward (default) function
                     self.moveForward(channel)
             else:  # right button
                 if pageStack == 'status':  # standard behavior
@@ -326,71 +368,76 @@ class Axp209HAT(BasePhysicalHAT):
 
     def checkPressTime(self, channel):
         '''
-        This method was created to allow for a long double press of the buttons.  Previously, we only
+        This method checks for a long double press of the buttons.  Previously, we only
         had to deal with a single press of a single button.
 
-        This method requires two pins which are contained in the USABLE_BUTTONS list constant.  The will be used for
-        two things.  One to determine which is the non-button pressed, this is done by comparing the channel
-        passed in to the first item in the list.  If it is not the first item, it must be the second.  Two, if
-         there is no double long press, then the information is used to decide which method applies to which pin.
-         The first item in the list goes to moveForward, the second item goes moveBackward.
+        This method requires two pins which are contained in the USABLE_BUTTONS list constant.  This was necessary
+          because different HATs use different pins.  This list will be used for two things.  One, to determine which
+          is the non-button pressed, this is done by comparing the channel passed in to the first item in the list.
+          If it is not the first item, it must be the second.  Two, if there is no double long press, then the
+          information is used to decide which method applies to which pin.  The first item in the list is the left
+          button, the second item is the second button.
 
          If there is a double long press, we call a swapPages method.
 
         :param channel: The pin number that has been pressed and thus is registering a 0
-        :return: nothing
+        :return: time original button pressed, time both buttons were pressed
         '''
 
-        # otherChannel is the one that has not been passed in by the parameter list.  We cannot hard code the
-        # values because the different hats use different pin values.
+        # otherChannel is the button that has not been passed in by the channel parameter.
         otherChannel = self.USABLE_BUTTONS[0] if channel == self.USABLE_BUTTONS[1] else self.USABLE_BUTTONS[1]
 
         # there are two timers here.  One is for total time the original button was pushed.  The second is for when
         # the second button was pushed.  The timer gets restarted if the button is not pressed or is released.  The
-        # reason for th e recorder is that if it is not kept, then when you let off the second button it will bounce
+        # reason for the recorder is that if it is not kept, then when you let off the second button it will bounce
         # and give a false reading.  Here we keep the highest consecutive time it was pushed.
-        startTime = time.time() # time original button is pushed
+        startTime = time.time()     # time original button is pushed
         dualStartTime = time.time() # time both buttons were pushed.
-        dualTimeRecorded = 0 # to prevent time being reset when letting off of buttons
+        dualTimeRecorded = 0        # to prevent time being reset when letting off of buttons
 
-        while GPIO.input(channel) == 0:  # While original button is being pressed
-            if GPIO.input(otherChannel) == 1: # move start time up if not pressing other button
+        while GPIO.input(channel) == 0:         # While original button is being pressed
+            if GPIO.input(otherChannel) == 1:   # move start time up if not pressing other button
                 dualButtonTime = time.time() - dualStartTime # How long were both buttons down?
                 dualTimeRecorded = dualButtonTime if dualButtonTime > dualTimeRecorded else dualTimeRecorded
-                dualStartTime = time.time() # reset start time to now
+                dualStartTime = time.time()     # reset start time to now
 
-        buttonTime = time.time() - startTime  # How long was the original button down?
-
+        buttonTime = time.time() - startTime    # How long was the original button down?
         return buttonTime, dualTimeRecorded
 
     def chooseCancel(self):
         """ method for use when cancelling a choice"""
         logging.debug("Choice cancelled")
         self.command_to_reference = ''  # really don't want to leave this one loaded
-        self.display.switchPages()
+        self.display.switchPages()      # drops back to the admin pages
+        # reset the display power off time
+        self.displayPowerOffTime = time.time() + self.DISPLAY_TIMEOUT_SECS
 
     def chooseEnter(self, pageStack):
         """ method for use when enter selected"""
         logging.debug("Enter pressed.")
         if pageStack == 'admin':
             if self.display.checkIfLastPage():  # this is the exit page so, go back to admin pageStack
-                self.display.switchPages()
+                self.display.switchPages()      # swap to status pages
             else:
-                self.command_to_reference = self.display.getAdminPageName()
+                self.command_to_reference = self.display.getAdminPageName()  # find page name before we change it
                 logging.debug("Leaving admin page: {}".format(self.command_to_reference))
-                self.command_to_reference = self.display.getAdminPageName()
                 logging.debug("Confirmed Page shown")
                 self.display.showConfirmPage()
-        elif pageStack == 'confirm':
+        else:
             logging.debug("Choice confirmed")
             self.display.showWaitPage()
             logging.debug("Waiting Page shown")
             self.executeCommands(self.command_to_reference)
 
+        # reset the display power off time
+        self.displayPowerOffTime = time.time() + self.DISPLAY_TIMEOUT_SECS
+
     def switchPages(self):
         """method for use on button press to change display options"""
         logging.debug("You have now entered, the SwitchPages")
         self.display.switchPages()
+        # reset the display power off time
+        self.displayPowerOffTime = time.time() + self.DISPLAY_TIMEOUT_SECS
 
     def moveForward(self, channel):
         """method for use on button press to cycle display"""
@@ -432,6 +479,9 @@ class Axp209HAT(BasePhysicalHAT):
                 # Perhaps power off the display
                 if time.time() > self.displayPowerOffTime:
                     self.display.powerOffDisplay()
+                    if self.pageStack != 'status':  # if we're not on the default status pages
+                    self.pageStack = 'admin'        # this is to prep to return to the status pages
+                    self.display.switchPages()      # switch to the status stack from anywhere else we are
 
                 # Check battery and possibly shutdown or show low battery page
                 # Do this less frequently than updating LEDs. We could do
