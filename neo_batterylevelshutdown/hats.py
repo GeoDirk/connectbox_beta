@@ -479,9 +479,9 @@ class Axp209HAT(BasePhysicalHAT):
                 # Perhaps power off the display
                 if time.time() > self.displayPowerOffTime:
                     self.display.powerOffDisplay()
-                    if self.pageStack != 'status':  # if we're not on the default status pages
-                        self.pageStack = 'admin'    # this is to prep to return to the status pages
-                    self.display.switchPages()      # switch to the status stack from anywhere else we are
+                    if self.display.pageStack != 'status':  # if we're not on the default status pages
+                        self.display.pageStack = 'admin'    # this is to prep to return to the status pages
+                        self.display.switchPages()      # switch to the status stack from anywhere else we are
 
                 # Check battery and possibly shutdown or show low battery page
                 # Do this less frequently than updating LEDs. We could do
